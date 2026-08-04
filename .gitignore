@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Models (too large for GitHub — download separately)
+python/models/*.onnx
+*.onnx
+
+# Large files
+*.zip
+jdk17/
+jdk17.zip
+GuideSenseApp/
+GuideSenseApp.zip
+netra_arduino_deployment.zip
+
+# Runtime / temp
+comfort_speed.json
+autostart.log
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
