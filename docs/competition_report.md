@@ -164,9 +164,8 @@ We tested the robot in 3 environments:
 - Audio feedback somewhat drowned out by market noise — user would benefit from earphones
 
 **Battery life (3-battery system):**
-- BAT-1 (motors, 7.4V 2200mAh): ~2–4 hrs depending on terrain
-- BAT-2 (logic, regulated 5V): ~2+ hrs continuous
-- BAT-3 (emergency Bluetooth + buzzer, 18650): 18+ hrs standby
+- BAT-1 + BAT-2 (both 7.4V LiPo 2200mAh, identical, automatic Schottky diode failover): ~2.5–3 hrs combined continuous runtime. When BAT-1 depletes, BAT-2 takes over automatically with no interruption.
+- BAT-3 (3.7V 18650, emergency only — buzzer + Bluetooth): 18+ hrs standby, completely independent rail
 
 
 ---

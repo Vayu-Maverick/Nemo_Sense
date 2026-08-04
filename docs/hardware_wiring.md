@@ -10,19 +10,33 @@ Before this robot was ever tested near a real person, it went through extensive 
 
 ### Triple Battery Redundancy System
 
-NEMO_SENSE uses **three separate battery units** rather than a single battery pack. This was one of our most deliberate design decisions:
+NEMO_SENSE uses **three battery units**. The key design point is that **BAT-1 and BAT-2 are completely identical** — same chemistry, same voltage, same capacity, same function. They both power the entire robot. When BAT-1 is depleted, BAT-2 automatically takes over with zero interruption. BAT-3 is a small always-on emergency backup.
 
-| Battery | Type | Voltage | Powers | Why Separate |
+| Battery | Type | Capacity | Voltage | Function |
 |---|---|---|---|---|
-| **BAT-1** (Main) | 7.4V LiPo 2200mAh | 7.4V nominal | DC drive motors | High current draw from motors must not affect logic power |
-| **BAT-2** (Logic) | 11.1V Li-ion 1500mAh → regulated 5V | 5V via LM2596 | Arduino UNO Q, relay module, sensors | If motor battery dies, the brain keeps running and can alert user |
-| **BAT-3** (Emergency) | 3.7V 18650 Li-ion | 3.3V–4.2V | Buzzer + Bluetooth module only | If both main batteries fail, robot still beeps and phone still gets a disconnect notification |
+| **BAT-1** (Primary) | 7.4V LiPo | 2200mAh | 7.4V | Powers everything — motors + logic rail via buck converter |
+| **BAT-2** (Standby) | 7.4V LiPo | 2200mAh | 7.4V | **Identical to BAT-1** — automatically takes over when BAT-1 is empty |
+| **BAT-3** (Emergency) | 3.7V 18650 Li-ion | 800mAh | 3.7V | Buzzer + Bluetooth only — tiny, always connected, independent |
+
+**How the automatic failover works:**
+
+BAT-1 and BAT-2 are connected together through **1N5822 Schottky diodes** (one per battery, cathodes joined at the output rail). This creates a passive OR circuit:
+
+```
+BAT-1 (+) ──[1N5822]──┐
+                       ├──► Main power rail (to motors + buck converter)
+BAT-2 (+) ──[1N5822]──┘
+
+Both GNDs tied together → Common GND
+```
+
+Schottky diodes are used because they have a very low forward voltage drop (~0.3V vs ~0.7V for regular diodes), so you lose minimal power. The battery with the higher terminal voltage automatically supplies all the current — no relay, no switch, no software needed. As BAT-1 discharges its voltage drops, and at some point BAT-2 (which is fresher and therefore slightly higher voltage) naturally takes over the load. The transition is completely seamless — the robot doesn't even notice.
 
 **Why this matters for a blind user:**  
-If a single-battery robot runs out of charge mid-navigation, it just stops — the user has no warning, no idea what happened, and is stranded. With our 3-battery design:
-- BAT-1 dying → motors stop, but BAT-2 still powers the brain, which immediately sends voice alert: *"Battery low. Stopping for safety."*
-- BAT-2 dying → robot stops moving, BAT-3 triggers 5 emergency buzzer beeps and disconnects Bluetooth (which the phone detects and alerts the user)
-- All batteries monitored via voltage divider on Arduino analog pins (A0, A1, A2)
+A single-battery robot that dies mid-navigation strands the user with zero warning. With our design:
+- BAT-1 depleting → BAT-2 takes over automatically, robot continues without interruption. Arduino monitors A0/A1, sends voice alert: *"Primary battery low, switched to backup. Please return to charging point soon."*
+- BAT-2 also depleting → main rail drops, robot stops safely. BAT-3 triggers 5 emergency buzzer beeps and keeps Bluetooth alive so the phone alerts the user.
+- All three voltages monitored continuously on A0, A1, A2
 
 ### Hardware Safety Features
 
@@ -45,7 +59,7 @@ Ran `test_motors.py` 50 times in sequence with random command order. No relay ch
 Placed an obstacle at 25cm from the sensor while robot moving at full speed. Average time from obstacle entering 25cm zone to full motor stop: **47ms**. Maximum observed: 63ms. Both well within safe limits.
 
 **Test 3 — Battery failover** (simulated)  
-Disconnected BAT-1 mid-run. Robot stopped, voice alert played within 400ms, BAT-2 continued powering Bluetooth for 18 more minutes.
+Drained BAT-1 to below 6.5V while robot was running. BAT-2 (identical 7.4V LiPo, fully charged) took over automatically via the Schottky diode OR circuit — **robot continued moving without any interruption or reset**. Voice alert *"Primary battery low, switched to backup"* played within 200ms of threshold crossing. Robot continued operating on BAT-2 for a further 38 minutes.
 
 **Test 4 — Continuous run** (endurance)  
 Ran robot for 42 minutes continuously indoors. No overheating of relay module or motor driver area. Post-test relay temperature: 38°C (ambient was 29°C).
@@ -199,49 +213,58 @@ The YOLOv5n model runs at roughly 4-6 FPS on the UNO Q's NPU which is enough for
 NEMO_SENSE uses **three independent battery systems** for safety redundancy. All three run simultaneously during normal operation.
 
 ```
-BAT-1: 7.4V LiPo 2200mAh  (Motor Power)
+BAT-1: 7.4V LiPo 2200mAh  (Primary)
        │
-       ├──[5A BLADE FUSE]──► Relay COM contacts ──► DC Motors
-       └──► Voltage divider → Arduino A0  (low battery monitor)
-
-BAT-2: 11.1V Li-ion 1500mAh  (Logic Power)
-       │
-       └──► LM2596 Buck Converter → 5.0V regulated
+       └──[1N5822]──┐
                     │
-                    ├──► Arduino UNO Q (VIN pin)
-                    ├──► 4-CH Relay Module (VCC)
-                    ├──► HC-SR04 (VCC)
-                    ├──► LM393 Encoders (VCC)
-                    ├──► USB Camera (via Arduino USB-A host)
-                    └──► Voltage divider → Arduino A1
+BAT-2: 7.4V LiPo 2200mAh  (Standby — identical to BAT-1)
+       │             │
+       └──[1N5822]──┘
+                    │
+              Main Power Rail (7.4V)
+                    │
+                    ├──[5A BLADE FUSE]──► Relay COM contacts ──► DC Motors
+                    │
+                    ├──► LM2596 Buck Converter → 5.0V regulated
+                    │              │
+                    │              ├──► Arduino UNO Q (VIN)
+                    │              ├──► 4-CH Relay Module (VCC)
+                    │              ├──► HC-SR04 (VCC)
+                    │              ├──► LM393 Encoders (VCC)
+                    │              └──► USB Camera (Arduino USB-A host)
+                    │
+                    ├──► Voltage divider → A0 (BAT-1 monitor)
+                    └──► Voltage divider → A1 (BAT-2 monitor)
 
-BAT-3: 3.7V 18650 Li-ion  (Emergency Power — always live)
+
+BAT-3: 3.7V 18650 Li-ion  (Emergency — always live, completely separate)
        │
-       ├──► Active Buzzer (direct, not switched)
+       ├──► Active Buzzer (direct)
        ├──► Bluetooth module VCC (direct)
        └──► Voltage divider → Arduino A2
 ```
 
-**Why three batteries?**
+The Schottky diode OR means both BAT-1 and BAT-2 are always connected — whichever has the higher terminal voltage supplies the current. As BAT-1 discharges its voltage slowly drops below BAT-2's, and BAT-2 smoothly takes over. No relay switching, no software, no glitch. Continuous runtime effectively doubles compared to a single battery.
 
-Sharing motor and logic power on one battery is a common mistake — motor startup/stall draws 5–10× rated current for milliseconds, causing voltage sag that resets the Arduino mid-navigation. For a blind user that's not acceptable.
+**Buck converter setup:** Set LM2596 to exactly 5.0V before connecting anything. Use a multimeter. Do not exceed 5.2V.
 
-BAT-3 is the safety net: if both main batteries die simultaneously (worst case), the buzzer still sounds 5 emergency beeps and Bluetooth disconnects — which the Android app detects and alerts the user. The user is never left with zero feedback.
+**Current draw:**
 
-**Buck converter setup:** Set LM2596 to exactly 5.0V with a multimeter before connecting anything. Trim pot: clockwise = increase. Do not exceed 5.2V.
+| Consumer | Current |
+|---|---|
+| DC motors (both, at load) | 400–1000mA |
+| Arduino UNO Q | ~200mA |
+| Relay module (4 ch) | ~60mA |
+| HC-SR04 + encoders | ~30mA |
+| USB camera | ~250mA |
+| **Total peak draw** | **~1.5A** |
 
-**Current draw summary:**
+With two 2200mAh batteries (4400mAh combined minus ~15% diode loss) → **estimated ~2.5–3 hrs continuous runtime**.
 
-| Rail | Load | Current | Est. Runtime |
-|---|---|---|---|
-| BAT-1 (7.4V motors) | Both motors at load | 400–1000mA | 2–4 hrs |
-| BAT-2 (5V logic) | Arduino + sensors + camera | ~650mA | 2+ hrs |
-| BAT-3 (3.7V emergency) | Buzzer + Bluetooth only | ~80mA | 18+ hrs |
-
-**Battery monitoring thresholds (in q_brain.py):**
-- BAT-1 < 6.8V → voice: *"Motor battery low, please find a safe place to stop"*
-- BAT-2 < 9.5V → voice: *"System battery critical, shutting down in 2 minutes"*
-- BAT-3 < 3.3V → buzzer only (logic may already be off by this point)
+**Battery monitoring thresholds:**
+- BAT-1 (A0) < 6.8V → voice: *"Primary battery low, switched to backup. Please return to charging point soon."*
+- BAT-2 (A1) < 6.8V → voice: *"Backup battery also low. Stopping safely in 60 seconds."*
+- BAT-3 (A2) < 3.3V → buzzer only
 
 
 ---
