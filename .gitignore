@@ -13,13 +13,12 @@ build/
 !yolov5n.onnx
 !python/models/yolov5n.onnx
 
-# Large files
+# Large binaries and build artifacts
 *.zip
 jdk17/
-jdk17.zip
-GuideSenseApp/
-GuideSenseApp.zip
-netra_arduino_deployment.zip
+GuideSenseApp/build/
+GuideSenseApp/.gradle/
+GuideSenseApp/.kotlin/
 
 # Runtime / temp
 comfort_speed.json
