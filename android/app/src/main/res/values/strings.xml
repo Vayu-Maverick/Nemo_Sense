@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App name -->
+    <string name="app_name">Netra</string>
+
+    <!-- Status messages -->
+    <string name="status_ready">Ready</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting to rover…</string>
+    <string name="status_connected">Connected to Netra Rover</string>
+    <string name="status_navigating">Navigating</string>
+    <string name="status_arrived">Arrived!</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_error">Error</string>
+    <string name="status_stopped">Stopped</string>
+
+    <!-- Speed display -->
+    <string name="speed_default">Speed: — m/s</string>
+    <string name="speed_format">Speed: %.1f m/s</string>
+
+    <!-- Mic button -->
+    <string name="mic_hint">Tap to speak</string>
+    <string name="listening">🔴 Listening…</string>
+
+    <!-- Last spoken -->
+    <string name="last_spoken_default">Say a destination or command</string>
+
+    <!-- TalkBack content descriptions -->
+    <string name="cd_connection_status">Bluetooth connection status</string>
+    <string name="cd_current_status">Current navigation status</string>
+    <string name="cd_speed">Current rover speed</string>
+    <string name="cd_mic_button">Tap to speak a command or destination</string>
+    <string name="cd_listening">Listening for your voice</string>
+    <string name="cd_last_spoken">Last message spoken by Netra</string>
+
+    <!-- Permissions -->
+    <string name="permissions_required">Netra needs Bluetooth, Location, and Microphone permissions to guide you safely.</string>
+
+    <!-- Errors -->
+    <string name="error_bt_not_available">Bluetooth is not available on this device</string>
+    <string name="error_bt_not_enabled">Please enable Bluetooth</string>
+    <string name="error_bt_device_not_found">Netra rover not found. Please pair it first.</string>
+    <string name="error_bt_connection_failed">Could not connect to rover. Retrying…</string>
+    <string name="error_speech_not_available">Speech recognition not available</string>
+    <string name="error_geocoding_failed">Could not find that location</string>
+    <string name="error_routing_failed">Could not calculate a walking route</string>
+    <string name="error_gemini_failed">AI assistant error. Please try again.</string>
+
+    <!-- ============================================================ -->
+    <!-- GEMINI API KEY                                               -->
+    <!-- ============================================================ -->
+    <!-- You can also place your API key here instead of BuildConfig. -->
+    <!-- Get your key at: https://aistudio.google.com/app/apikey      -->
+    <!-- ============================================================ -->
+    <string name="gemini_api_key" translatable="false">YOUR_GEMINI_API_KEY</string>
+</resources>

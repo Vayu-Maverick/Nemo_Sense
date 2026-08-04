@@ -1,0 +1,15 @@
+[Unit]
+Description=USB Host Mode Init — Switch USB-C to host and power webcam
+After=sysinit.target
+Before=nemosense.service arduino-router.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/arduino/nemosense/usb_host_init.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

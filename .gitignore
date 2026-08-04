@@ -8,9 +8,10 @@ __pycache__/
 dist/
 build/
 
-# Models (too large for GitHub — download separately)
-python/models/*.onnx
+# Models (large — keep yolov5n but ignore others)
 *.onnx
+!yolov5n.onnx
+!python/models/yolov5n.onnx
 
 # Large files
 *.zip

@@ -1,164 +1,109 @@
-# NEMO_SENSE 🦮
-### AI-Powered Navigation Robot for Blind and Visually Impaired People
-**Arduino Physical AI Challenge India 2026 — Robu.in × Arduino**
+# Nemo~Sense
+### Autonomous Navigational Aid for Visually Challenged Individuals
+
+> *See with technology. Move with confidence.*
 
 ---
 
-> We built NEMO_SENSE because 285 million people in the world are visually impaired and most of the assistive technology available is either too expensive or too complicated to use. Our robot uses the Arduino UNO Q's onboard neural processing unit to detect obstacles in real time using a camera, and guides the user through voice feedback on their phone. The whole thing costs under ₹5000 to build.
+## Overview
+Nemo~Sense is a self-contained, camera-guided rover that helps visually impaired users navigate indoor and outdoor environments. It uses a 720p webcam and on-device AI (YOLOv5n) to detect obstacles and steer around them autonomously — no phone, no internet, no cloud required.
+
+**Hardware required:**
+- Arduino UNO Q (Linux AI brain + STM32 motor bridge)
+- Quarky chassis (wheels + motors)
+- Logitech 720p USB webcam
+- Powered USB hub
+- 10 000 mAh power bank
 
 ---
 
-## ⚠️ IMPORTANT — which branch to look at
+## Quick Start
 
-| Branch | What's in it | Who should look at it |
-|---|---|---|
-| [`production`](https://github.com/Vayu-Maverick/Nemo_Sense/tree/production) | Only the code that runs the robot | **Judges — start here** |
-| [`main`](https://github.com/Vayu-Maverick/Nemo_Sense/tree/main) | Everything — android app, docs, all tools | Full project view |
-
----
-
-## The Problem
-
-Navigation for blind people in Indian cities is extremely hard. The footpaths are uneven, there are vehicles parked on roads, there are open manholes, stray animals and all sorts of obstacles that a white cane simply cannot detect until it's too late. Existing GPS apps assume the user can see the screen. Existing guide dogs are expensive to train (₹3-4 lakhs) and not widely available. We wanted to build something cheap, practical, and actually helpful.
-
----
-
-## What NEMO_SENSE does
-
-1. **Sees** — A USB camera feeds live video to the YOLOv5n model running on the Arduino UNO Q's NPU. It detects obstacles (people, vehicles, walls, steps) in real time.
-2. **Senses (backup)** — Even if the camera fails or lighting is bad, the robot uses WiFi RSSI shadow-fading to detect large nearby objects by monitoring signal drops across multiple access points.
-3. **Navigates** — Two wheel encoders track exactly how far each wheel has turned (dead-reckoning). Combined with a P-controller, the robot steers around obstacles automatically.
-4. **Speaks** — The user's Android phone connects via Bluetooth. The robot sends text messages, the phone reads them aloud using TTS. The user hears things like *"Obstacle on your left, moving right"* or *"Path is clear, continue forward."*
-
-**No internet required. No PC required. The Arduino UNO Q does everything.**
-
----
-
-## System Architecture
-
+### 1. Flash the Arduino firmware
+Connect the Arduino UNO Q to your PC via USB, then open the Arduino IDE or arduino-cli:
 ```
-                        NEMO_SENSE ROBOT
-┌─────────────────────────────────────────────────────────┐
-│                                                         │
-│   [USB Camera] ──► [Arduino UNO Q NPU]                  │
-│                          │                              │
-│   [WiFi Scan] ───────────┤ YOLOv5n obstacle detect      │
-│                          │ WiFi shadow-fading sense      │
-│   [LM393 Encoders] ──────┤ Dead-reckoning odometry       │
-│                          │ P-controller steering         │
-│                          │                              │
-│                     [UART Serial]                       │
-│                          │                              │
-│              [Motor Controller Arduino]                 │
-│                          │                              │
-│              [4-Channel Relay Module]                   │
-│                    │           │                        │
-│             [Left Motor]  [Right Motor]                 │
-│                                                         │
-└──────────────────────────────┬──────────────────────────┘
-                               │ Bluetooth RFCOMM
-                    [Android Phone - Optional]
-                    Voice commands + GPS + TTS
+arduino-cli compile --fqbn arduino:zephyr:unoq arduino/motor_controller
+arduino-cli upload  --fqbn arduino:zephyr:unoq arduino/motor_controller -p COMX
+```
+*(Replace `COMX` with your port, e.g. `COM3` on Windows)*
+
+### 2. Push the Python code to the board
+```bat
+adb push python/ /home/arduino/nemosense/python/
 ```
 
----
-
-## Hardware Used
-
-| Component | Quantity | Approx Cost |
-|---|---|---|
-| Arduino UNO Q (ABX00087) | 1 | ₹3,200 |
-| 4-Channel Relay Module (5V/10A) | 1 | ₹150 |
-| DC Gear Motor with encoder (6V) | 2 | ₹600 |
-| 65mm rubber wheels | 2 | ₹120 |
-| USB Camera (720p) | 1 | ₹450 |
-| HC-SR04 Ultrasonic | 1 | ₹50 |
-| Active Buzzer | 1 | ₹20 |
-| 7.4V LiPo 2200mAh | 1 | ₹600 |
-| 5V 3A Buck Converter (LM2596) | 1 | ₹80 |
-| Acrylic chassis sheet (30x20cm) | 1 | ₹150 |
-| Jumper wires, standoffs, screws | - | ₹100 |
-| **Total** | | **≈ ₹5,520** |
-
-> The YOLOv5n.onnx model file (7MB) is included in the repo. You don't need to download or train anything separately.
-
----
-
-## How to build and run it
-
-Full step-by-step is in [`docs/setup_guidesense.md`](docs/setup_guidesense.md)
-
-Short version:
+### 3. Install Python dependencies (run once on the board)
 ```bash
-# 1. Flash the motor controller
-# Open arduino/motor_controller/motor_controller.ino in Arduino IDE
-# Select Arduino UNO R4, upload.
-
-# 2. Install python dependencies
-pip install -r requirements.txt
-
-# 3. Run the AI brain
-python q_brain.py --port COM4         # Windows
-python q_brain.py --port /dev/ttyACM0 # Linux/Raspberry Pi
+pip3 install opencv-python numpy
 ```
 
-For wiring: [`docs/hardware_wiring.md`](docs/hardware_wiring.md)
+### 4. Set up auto-start
+Run `setup_autostart.bat` on your PC while the board is connected via USB. The rover will auto-start every time the battery is plugged in.
+
+### 5. Manual run (for testing)
+```bash
+python3 /home/arduino/nemosense/python/main.py --mode full
+```
 
 ---
 
-## Results
+## How it works
 
-During testing in our school campus and a nearby market area:
-- Obstacle detection accuracy: ~89% in daylight conditions
-- WiFi fallback detection: worked in 3 out of 5 indoor scenarios tested  
-- Motor response time from obstacle detection: ~180ms average
-- Ran continuously for 40 minutes on a single 7.4V 2200mAh LiPo charge
+```
+Webcam → YOLOv5n (obstacle detection)
+                 ↓
+         Micro-navigator (steer LEFT / RIGHT / STOP)
+                 ↓   (overrides ↑ when obstacle present)
+         Macro-navigator (north → east demo route)
+                 ↓
+         MotorLink  →  /dev/ttyACM0  →  STM32 MCU
+                                              ↓
+                                   GPIO D2/D3/D4
+                                              ↓
+                                        Quarky chassis
+```
+
+The rover drives **straight (north)** by default. If it detects an obstacle in the camera frame, it steers around it automatically. When no compass is available it just goes straight — no crash, no freeze.
 
 ---
 
-## Files in this repo
+## Wiring
+
+| Arduino UNO Q | Quarky |
+|---|---|
+| D2 | Pin 1 (Right) |
+| D3 | Pin 2 (Left) |
+| D4 | Pin 3 (Stop) |
+| GND | GND ← **required** |
+
+USB hub connects: battery → hub → UNO Q (Type-C) + webcam + Quarky USB.
+
+---
+
+## Project Structure
 
 ```
-Nemo_Sense/
-├── q_brain.py                    ← Main AI brain — run this
-├── yolov5n.onnx                  ← Obstacle detection model (included)
-├── requirements.txt              ← Python dependencies
-├── find_arduino.py               ← Auto-detect which COM port Arduino is on
-├── test_motors.py                ← Test motor wiring before full run
-├── .gitignore
-│
+nemosense/
 ├── arduino/
 │   └── motor_controller/
-│       └── motor_controller.ino  ← Flash to Arduino UNO Q
-│
-├── android/                      ← Android companion app (Kotlin)
-│   └── app/src/main/java/
-│       └── com/netra/app/
-│           ├── MainActivity.kt
-│           ├── BluetoothManager.kt
-│           ├── VoiceHelper.kt
-│           ├── LocationHelper.kt
-│           └── GeminiHelper.kt
-│
-├── docs/
-│   ├── hardware_wiring.md        ← Wiring diagram + pin table
-│   ├── setup_guidesense.md       ← Full setup instructions
-│   ├── competition_report.md     ← Project report for submission
-│   └── submission_guide.md       ← Contest submission checklist
-│
-└── scripts/
-    ├── setup_q.sh                ← One-shot setup for Raspberry Pi / SBC
-    └── run_netra.sh              ← Auto-start script
+│       └── motor_controller.ino   ← Flash this to the Arduino
+├── python/
+│   ├── main.py                    ← Main entry point
+│   ├── config.py                  ← All settings
+│   ├── vision.py                  ← Webcam + YOLOv5n
+│   ├── micro_nav.py               ← Obstacle avoidance
+│   ├── navigation.py              ← Waypoint navigation
+│   └── motor_link.py              ← Serial bridge to MCU
+├── quarky/
+│   └── quarky_motor_control.py    ← PictoBlox logic reference
+├── PATENT_DISCLOSURE.md           ← Technical disclosure
+├── setup_autostart.bat            ← Install auto-start via ADB
+└── README.md                      ← This file
 ```
-
----
-
-## Team
-
-Built by students of **[School Name], [City]** for the Arduino Physical AI Challenge India 2026.
 
 ---
 
 ## License
+MIT License — free for personal, educational, and commercial use.
 
-This is free and unencumbered software released into the public domain. See [UNLICENSE](UNLICENSE).
+See [PATENT_DISCLOSURE.md](PATENT_DISCLOSURE.md) for a full technical description.
