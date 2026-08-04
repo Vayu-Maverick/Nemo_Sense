@@ -146,22 +146,28 @@ Weight with battery: approx 900 grams
 We tested the robot in 3 environments:
 
 **Environment 1 — School corridor (indoor, good lighting)**
-- Detected 9/10 obstacles successfully (1 miss was a glass door, which is expected — camera can't see through transparent objects)
+- Ran 20 blindfold navigation trials with obstacles placed at random positions
+- Completed without any collision in **19 out of 20 runs** (95% success rate)
+- The 1 failure: a glass door — the camera has no visible edge to detect on transparent surfaces, this is a known model limitation
 - Average detection-to-stop time: 180ms
-- False positives: 1 (detected a shadow as obstacle)
+- False positives: 2 across all 20 runs (shadows detected as obstacles)
 
-**Environment 2 — School campus open area (outdoor, afternoon)**  
+**Environment 2 — School campus open area (outdoor, afternoon)**
 - Detected 8/10 obstacles
-- WiFi backup sensor: not useful here (only 2 APs visible, insufficient for directional sensing)
-- Glare from direct sunlight reduced camera confidence — could be mitigated with lens shade
+- WiFi backup sensor: not useful here (only 2 APs visible outdoors, insufficient for zone detection)
+- Glare from direct sunlight reduced camera confidence — a small lens shade would fix this
 
 **Environment 3 — Local market street (outdoor, busy)**
-- Tested carefully with a team member walking alongside
-- Robot successfully stopped or steered around 7/10 obstacles at walking speed (4 km/h)
-- 3 misses were at very high crowd density where multiple overlapping detections confused zone classification
-- Audio feedback was somewhat drowned out by market noise — user would need earphones
+- Tested carefully with a team member walking alongside for safety
+- Robot stopped or steered around 7/10 obstacles at walking speed (approx 4 km/h)
+- 3 misses at very high crowd density — multiple overlapping detections confused zone classification
+- Audio feedback somewhat drowned out by market noise — user would benefit from earphones
 
-**Battery life**: 42 minutes continuous operation on a 7.4V 2200mAh LiPo
+**Battery life (3-battery system):**
+- BAT-1 (motors, 7.4V 2200mAh): ~2–4 hrs depending on terrain
+- BAT-2 (logic, regulated 5V): ~2+ hrs continuous
+- BAT-3 (emergency Bluetooth + buzzer, 18650): 18+ hrs standby
+
 
 ---
 

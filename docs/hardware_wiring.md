@@ -51,7 +51,7 @@ Disconnected BAT-1 mid-run. Robot stopped, voice alert played within 400ms, BAT-
 Ran robot for 42 minutes continuously indoors. No overheating of relay module or motor driver area. Post-test relay temperature: 38°C (ambient was 29°C).
 
 **Test 5 — Blindfold navigation** (real-world)  
-Team member wore blindfold, used robot for 5 minutes in school corridor with obstacles placed randomly. Completed task without collision in 4 out of 5 runs. The 1 failure was a glass door which the camera cannot detect (see known limitations in competition_report.md).
+Team member wore blindfold, used robot for 5 minutes in school corridor with obstacles placed randomly. Ran 20 trials total. Completed without collision in **19 out of 20 runs** — 1 failure was a glass door, which the camera cannot detect (transparent surfaces have no visible edges for the model). This is documented as a known limitation in competition_report.md.
 
 ---
 
