@@ -530,6 +530,7 @@ def find_model() -> Optional[Path]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, default=-1, help="Camera index (-1 = auto)")
+    ap.add_argument("--stream", type=str, default="", help="HTTP stream URL (e.g. http://192.168.1.X:8080/)")
     ap.add_argument("--sim",    action="store_true",   help="Simulated camera (no hardware)")
     ap.add_argument("--model",  type=str, default=None, help="Path to yolov5n.onnx")
     args = ap.parse_args()
@@ -538,11 +539,19 @@ def main():
     model_path = Path(args.model) if args.model else find_model()
     yolo = YOLOv5(model_path)
 
-    # -- Camera ----------------------------------------------------------------
     if args.sim:
         cap = SimCam()
         source = "SIMULATED"
         print("[CAM] Using simulated camera")
+    elif args.stream:
+        cap = cv2.VideoCapture(args.stream)
+        if not cap.isOpened():
+            print(f"[CAM] Failed to open stream {args.stream} -- falling back to simulated")
+            cap = SimCam()
+            source = "SIMULATED"
+        else:
+            source = f"STREAM [{args.stream[:20]}]"
+            print(f"[CAM] Opened network stream: {args.stream}")
     else:
         idx = args.camera
         if idx == -1:

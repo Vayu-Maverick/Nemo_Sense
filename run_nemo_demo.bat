@@ -33,14 +33,17 @@ echo.
 echo  [1]  WEBCAM + AI  (plug in webcam first)
 echo  [2]  SIMULATED    (no webcam needed — demo mode)
 echo  [3]  Camera 1     (if default webcam is wrong index)
+  [4]  WIFI STREAM  (Arduino UNO Q network stream)
+  [5]  Exit     (if default webcam is wrong index)
 echo  [4]  Exit
 echo.
-set /p CHOICE="  Enter 1-4: "
+set /p CHOICE="  Enter 1-5: "
 
 if "%CHOICE%"=="1" goto WEBCAM
 if "%CHOICE%"=="2" goto SIM
 if "%CHOICE%"=="3" goto CAM1
-if "%CHOICE%"=="4" goto END
+if "%CHOICE%"=="4" goto STREAM
+if "%CHOICE%"=="5" goto END
 goto SIM
 
 :WEBCAM
@@ -65,6 +68,17 @@ goto END
 echo.
 echo [RUN] Starting with camera index 1...
 "%PYTHON%" "%DIR%nemo_demo.py" --camera 1
+pause
+goto END
+
+:STREAM
+echo.
+set /p IP="  Enter Arduino UNO Q IP address (e.g. 192.168.1.50): "
+echo.
+echo [RUN] Connecting to network stream at http://%IP%:8080/ ...
+echo       Press Q or ESC to quit.
+echo.
+"%PYTHON%" "%DIR%nemo_demo.py" --stream "http://%IP%:8080/"
 pause
 goto END
 
