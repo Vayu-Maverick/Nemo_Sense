@@ -1,4 +1,4 @@
-﻿# quarky_ble_receiver.py
+# quarky_ble_receiver.py
 # ========================
 # MicroPython script for Quarky (ESP32) to receive motor commands over BLE.
 # 
@@ -9,15 +9,6 @@ import machine
 import bluetooth
 import time
 
-# -- Motor Pins (L298N/L293D) --
-pin_L_EN  = machine.PWM(machine.Pin(10), freq=1000)
-pin_L_IN1 = machine.Pin(8, machine.Pin.OUT)
-pin_L_IN2 = machine.Pin(9, machine.Pin.OUT)
-
-pin_R_EN  = machine.PWM(machine.Pin(5), freq=1000)
-pin_R_IN1 = machine.Pin(6, machine.Pin.OUT)
-pin_R_IN2 = machine.Pin(7, machine.Pin.OUT)
-
 # -- BLE UUIDs --
 SERVICE_UUID = bluetooth.UUID("19B10000-E8F2-537E-4F6C-D104768A1214")
 CHAR_UUID    = bluetooth.UUID("19B10001-E8F2-537E-4F6C-D104768A1214")
@@ -26,25 +17,37 @@ CHAR_UUID    = bluetooth.UUID("19B10001-E8F2-537E-4F6C-D104768A1214")
 TIMEOUT_MS = 500
 last_cmd_ticks = time.ticks_ms()
 
-def set_motors(l, r):
-    # Left
-    if l > 0:
-        pin_L_IN1.value(1); pin_L_IN2.value(0)
-    elif l < 0:
-        pin_L_IN1.value(0); pin_L_IN2.value(1)
-    else:
-        pin_L_IN1.value(0); pin_L_IN2.value(0)
-    # PWM duty cycle in MicroPython is 0-1023, input is 0-255
-    pin_L_EN.duty(int(abs(l) * 4))
+# Initialize Quarky board
+try:
+    from quarky import *
+    qrk = Quarky()
+except ImportError:
+    print("Warning: quarky module not found. Are you running on the Quarky board?")
+    qrk = None
 
-    # Right
-    if r > 0:
-        pin_R_IN1.value(1); pin_R_IN2.value(0)
-    elif r < 0:
-        pin_R_IN1.value(0); pin_R_IN2.value(1)
+def set_motors(l, r):
+    if not qrk:
+        return
+        
+    # Map -255..255 from laptop to 0..100 % for Quarky inbuilt drivers
+    l_pct = int(max(0, min(100, abs(l) / 2.55)))
+    r_pct = int(max(0, min(100, abs(r) / 2.55)))
+    
+    # Left Motor
+    if l > 0:
+        qrk.runmotor("L", "FORWARD", l_pct)
+    elif l < 0:
+        qrk.runmotor("L", "BACKWARD", l_pct)
     else:
-        pin_R_IN1.value(0); pin_R_IN2.value(0)
-    pin_R_EN.duty(int(abs(r) * 4))
+        qrk.runmotor("L", "FORWARD", 0)
+        
+    # Right Motor
+    if r > 0:
+        qrk.runmotor("R", "FORWARD", r_pct)
+    elif r < 0:
+        qrk.runmotor("R", "BACKWARD", r_pct)
+    else:
+        qrk.runmotor("R", "FORWARD", 0)
 
 # -- BLE Setup --
 class BLEServer:
