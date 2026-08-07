@@ -1,87 +1,58 @@
 @echo off
-:: ╔══════════════════════════════════════════════════════════════════╗
-:: ║   NEMO_SENSE  —  PC Demo Launcher                                ║
-:: ║   Runs AI pipeline on PC, shows Arduino UNO Q dashboard          ║
-:: ╚══════════════════════════════════════════════════════════════════╝
-setlocal EnableDelayedExpansion
-
-set PYTHON=C:\Users\Admin\AppData\Local\Programs\Python\Python311\python.exe
-set DIR=%~dp0
+title NEMO_SENSE -- AI Navigation Dashboard
 
 echo.
-echo  ╔══════════════════════════════════════════════════════════╗
-echo  ║    NEMO_SENSE — AI Navigation Demo                       ║
-echo  ║    YOLOv5n  ^|  Obstacle Detection  ^|  Real-time UI      ║
-echo  ╚══════════════════════════════════════════════════════════╝
+echo  +----------------------------------------------------------+
+echo  ^|   NEMO_SENSE  --  AI Navigation Dashboard               ^|
+echo  ^|   Live webcam + AR path overlay + YOLOv5n               ^|
+echo  +----------------------------------------------------------+
+echo.
+echo  [1]  START  (auto-detect webcam)
+echo  [2]  Camera 1  (if you have multiple cameras)
+echo  [3]  WiFi stream from Arduino Q
+echo  [4]  Hide path overlay  (dashboard only)
+echo  [5]  Exit
 echo.
 
-:: Check Python
-if not exist "%PYTHON%" (
-    echo [ERROR] Python 3.11 not found. Trying system python...
-    set PYTHON=python
-)
+set /p C="  Choose: "
 
-:: Install deps silently
-echo [SETUP] Installing/checking dependencies...
-"%PYTHON%" -m pip install opencv-python numpy onnxruntime -q 2>&1 | findstr /v "already"
-echo [OK] Dependencies ready.
-echo.
+if "%C%"=="1" goto AUTO
+if "%C%"=="2" goto CAM1
+if "%C%"=="3" goto STREAM
+if "%C%"=="4" goto NOPTH
+if "%C%"=="5" exit /b
+goto AUTO
 
-:: Menu
-echo  Choose mode:
+:AUTO
 echo.
-echo  [1]  WEBCAM + AI  (plug in webcam first)
-echo  [2]  SIMULATED    (no webcam needed — demo mode)
-echo  [3]  Camera 1     (if default webcam is wrong index)
-  [4]  WIFI STREAM  (Arduino UNO Q network stream)
-  [5]  Exit     (if default webcam is wrong index)
-echo  [4]  Exit
+echo [*] Installing dependencies...
+python -m pip install opencv-python numpy onnxruntime -q
+echo [*] Launching...
+echo     Point webcam at the path. AR corridor will appear on screen.
+echo     Q = quit   P = pause
 echo.
-set /p CHOICE="  Enter 1-5: "
-
-if "%CHOICE%"=="1" goto WEBCAM
-if "%CHOICE%"=="2" goto SIM
-if "%CHOICE%"=="3" goto CAM1
-if "%CHOICE%"=="4" goto STREAM
-if "%CHOICE%"=="5" goto END
-goto SIM
-
-:WEBCAM
-echo.
-echo [RUN] Starting with webcam...
-echo       Press Q or ESC to quit the dashboard window.
-echo.
-"%PYTHON%" "%DIR%nemo_demo.py"
+python nemo_demo.py
 pause
-goto END
-
-:SIM
-echo.
-echo [RUN] Starting in simulated mode (no webcam needed)...
-echo       Press Q or ESC to quit.
-echo.
-"%PYTHON%" "%DIR%nemo_demo.py" --sim
-pause
-goto END
+exit /b
 
 :CAM1
 echo.
-echo [RUN] Starting with camera index 1...
-"%PYTHON%" "%DIR%nemo_demo.py" --camera 1
+python -m pip install opencv-python numpy onnxruntime -q
+python nemo_demo.py --camera 1
 pause
-goto END
+exit /b
 
 :STREAM
 echo.
-set /p IP="  Enter Arduino UNO Q IP address (e.g. 192.168.1.50): "
-echo.
-echo [RUN] Connecting to network stream at http://%IP%:8080/ ...
-echo       Press Q or ESC to quit.
-echo.
-"%PYTHON%" "%DIR%nemo_demo.py" --stream "http://%IP%:8080/"
+set /p IP="  Arduino Q IP address (e.g. 192.168.1.50): "
+python -m pip install opencv-python numpy onnxruntime -q
+python nemo_demo.py --stream "http://%IP%:8080/"
 pause
-goto END
+exit /b
 
-:END
+:NOPTH
 echo.
-echo Done!
+python -m pip install opencv-python numpy onnxruntime -q
+python nemo_demo.py --no-path
+pause
+exit /b
