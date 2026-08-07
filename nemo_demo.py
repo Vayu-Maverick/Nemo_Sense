@@ -1,27 +1,39 @@
 # -*- coding: utf-8 -*-
 """
-nemo_demo.py -- NEMO_SENSE AI Navigation Dashboard v3
+nemo_demo.py -- NEMO_SENSE AI Navigation Dashboard v4
 ======================================================
-Live webcam feed + YOLOv5n obstacle detection + AR path overlay.
+Live webcam + YOLOv5n (all 80 COCO classes) + AR path overlay
++ Quarky robot serial control from laptop.
 
-The DECISION (FORWARD / STEER LEFT / STEER RIGHT / STOP) is drawn
-as a perspective navigation corridor directly on the video, showing
-the RC car operator exactly which direction to drive.
+The AI decision (FORWARD/STEER LEFT/STEER RIGHT/STOP) is:
+  1. Drawn as a perspective AR corridor on the live video
+  2. Sent as a motor command over USB serial to Quarky
 
 Usage:
-    python nemo_demo.py              # auto webcam
-    python nemo_demo.py --camera 1   # specific camera index
-    python nemo_demo.py --stream URL # MJPEG stream from Arduino Q
+    python nemo_demo.py                        # auto webcam, no robot
+    python nemo_demo.py --camera 1             # specific camera index
+    python nemo_demo.py --quarky COM5          # auto webcam + Quarky on COM5
+    python nemo_demo.py --quarky auto          # auto-detect Quarky port
+    python nemo_demo.py --stream URL           # MJPEG network stream
+    python nemo_demo.py --no-path              # hide AR overlay
 
 Keys:  Q/ESC=quit   P=pause
 """
 
 from __future__ import annotations
-import argparse, math, time
+import argparse, math, time, threading, queue
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+# Quarky serial (optional -- only imported if --quarky flag is used)
+try:
+    import serial
+    import serial.tools.list_ports
+    _SERIAL_OK = True
+except ImportError:
+    _SERIAL_OK = False
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -57,7 +69,8 @@ COCO_NAMES = [
     "refrigerator","book","clock","vase","scissors","teddy bear","hair drier",
     "toothbrush",
 ]
-OBSTACLE_IDS = {0, 1, 2, 3, 5, 7, 15, 16}
+# Detect ALL 80 COCO classes as potential obstacles
+OBSTACLE_IDS = set(range(80))
 
 # ---------------------------------------------------------------------------
 # Colours (BGR)
@@ -506,9 +519,15 @@ def classify_zones(dets: list[Det], fw: int) -> list[Det]:
     l_end = fw // 3; r_start = 2 * fw // 3
     for d in dets:
         cx = (d.x1+d.x2)//2
-        area = ((d.x2-d.x1)*(d.y2-d.y1)) / (fw*CAM_H)
-        d.dist_m = max(0.3, 4.0*(1.0 - area*8))
-        d.zone = "left" if cx<l_end else ("right" if cx>r_start else "center")
+        # Area as fraction of total frame
+        area = ((d.x2-d.x1) * (d.y2-d.y1)) / max(1, fw * CAM_H)
+        # Inverse-sqrt-area approximation:
+        #   small object (area=0.01) -> ~3.5m
+        #   medium      (area=0.05) -> ~1.6m
+        #   large       (area=0.20) -> ~0.8m
+        #   very close  (area=0.50) -> ~0.5m
+        d.dist_m = min(8.0, max(0.4, 0.35 / math.sqrt(max(1e-5, area))))
+        d.zone = "left" if cx < l_end else ("right" if cx > r_start else "center")
     return dets
 
 def decide(dets: list[Det]) -> tuple[str, int, int]:
@@ -528,6 +547,106 @@ def sim_bats(t0, tn):
     e = tn - t0
     return (max(0., 1.-e/1800), max(0., 1.-e/2100), max(0., 1.-e/3600))
 
+
+# ---------------------------------------------------------------------------
+# Quarky serial link
+# ---------------------------------------------------------------------------
+# Protocol (sent from laptop → Quarky over USB serial at 115200 baud):
+#   M:LEFT,RIGHT\n     motor command  (-255 to 255 each wheel)
+#   S:STOP\n           emergency stop
+#
+# The Quarky runs quarky_receiver.ino which parses these commands.
+# Commands are non-blocking -- queued in a background thread so the
+# AI loop is never stalled waiting for serial writes.
+
+_ACTION_TO_PWM: dict[str, tuple[int, int]] = {
+    "FORWARD":     ( 160,  160),
+    "STOP":        (   0,    0),
+    "STEER LEFT":  (  40,  160),
+    "STEER RIGHT": ( 160,   40),
+}
+
+class QuarkyLink:
+    """Non-blocking serial link to Quarky motor controller."""
+
+    BAUD = 115200
+    QUARKY_KEYWORDS = ("quarky", "ch340", "cp210", "ftdi", "arduino", "usb serial")
+
+    def __init__(self, port: str):
+        self._port: serial.Serial | None = None
+        self._q: queue.Queue = queue.Queue(maxsize=4)
+        self.connected = False
+
+        if not _SERIAL_OK:
+            print("[QUARKY] pyserial not installed. Run: pip install pyserial")
+            return
+
+        resolved = self._resolve_port(port)
+        if not resolved:
+            print(f"[QUARKY] Port not found: {port}")
+            return
+
+        try:
+            self._port = serial.Serial(resolved, self.BAUD, timeout=0.05)
+            time.sleep(1.5)  # allow board to reset
+            self.connected = True
+            print(f"[QUARKY] Connected on {resolved}")
+        except Exception as e:
+            print(f"[QUARKY] Open failed: {e}")
+            return
+
+        # Background writer thread
+        t = threading.Thread(target=self._writer, daemon=True)
+        t.start()
+
+    def _resolve_port(self, port: str) -> str | None:
+        if port.lower() != "auto":
+            return port
+        # Scan all serial ports, prefer known Quarky/CH340 devices
+        ports = list(serial.tools.list_ports.comports())
+        for p in ports:
+            desc = (p.description or "").lower()
+            hwid = (p.hwid or "").lower()
+            if any(k in desc or k in hwid for k in self.QUARKY_KEYWORDS):
+                print(f"[QUARKY] Auto-detected: {p.device} ({p.description})")
+                return p.device
+        # Fallback: return first available port
+        if ports:
+            print(f"[QUARKY] Auto fallback to first port: {ports[0].device}")
+            return ports[0].device
+        return None
+
+    def send(self, action: str, l_pwm: int, r_pwm: int):
+        """Queue a motor command (non-blocking)."""
+        if not self.connected:
+            return
+        cmd = f"M:{l_pwm},{r_pwm}\n"
+        try:
+            self._q.put_nowait(cmd)
+        except queue.Full:
+            pass  # drop oldest, keep latest
+
+    def _writer(self):
+        while True:
+            cmd = self._q.get()
+            if self._port and self._port.is_open:
+                try:
+                    self._port.write(cmd.encode())
+                except Exception:
+                    pass
+
+    def close(self):
+        if self._port and self._port.is_open:
+            # Send stop before closing
+            try:
+                self._port.write(b"M:0,0\n")
+                time.sleep(0.1)
+                self._port.close()
+            except Exception:
+                pass
+        print("[QUARKY] Disconnected")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -537,12 +656,20 @@ def find_model():
     return None
 
 def main():
-    ap = argparse.ArgumentParser(description="NEMO_SENSE AI Navigation Dashboard")
-    ap.add_argument("--camera", type=int,  default=-1,  help="Camera index")
-    ap.add_argument("--stream", type=str,  default="",  help="MJPEG stream URL")
-    ap.add_argument("--model",  type=str,  default=None)
-    ap.add_argument("--no-path",action="store_true",    help="Disable path overlay")
+    ap = argparse.ArgumentParser(description="NEMO_SENSE AI Navigation Dashboard v4")
+    ap.add_argument("--camera",  type=int,  default=-1,  help="Camera index")
+    ap.add_argument("--stream",  type=str,  default="",  help="MJPEG stream URL")
+    ap.add_argument("--model",   type=str,  default=None)
+    ap.add_argument("--no-path", action="store_true",   help="Disable AR overlay")
+    ap.add_argument("--quarky",  type=str,  default="",
+                    help="Quarky COM port (e.g. COM5) or 'auto' to scan")
     args = ap.parse_args()
+
+    # -- Quarky serial link --
+    quarky = QuarkyLink(args.quarky) if args.quarky else None
+    if quarky and not quarky.connected:
+        print("[QUARKY] Not connected -- running without robot output")
+        quarky = None
 
     yolo = YOLOv5(find_model() if not args.model else args.model)
 
@@ -614,6 +741,10 @@ def main():
             dets = classify_zones(dets, CAM_W)
             act, ll, lr = decide(dets)
             last_dets = dets; last_act = act; fno += 1
+
+            # Send to Quarky
+            if quarky:
+                quarky.send(act, ll, lr)
         else:
             frame = last_frame.copy()
 
@@ -678,6 +809,8 @@ def main():
 
     cv2.destroyAllWindows()
     cap.release()
+    if quarky:
+        quarky.close()
     print("[DONE]")
 
 if __name__ == "__main__":
