@@ -1,386 +1,428 @@
 # NEMO_SENSE: ONE SHOT
-### A Single-Take Cinematic Film — Direction Script
-**Runtime:** 7–10 minutes | **Style:** Single unbroken take (1917 / Birdman method)
-**Camera:** Handheld or stabilised gimbal — never static, never cutting
+### Film Direction Script — Revised for Real Conditions
+**Runtime Target:** 7–10 minutes  
+**Equipment:** GoPro (Hero 10/11/12) + Boya Mic Mini  
+**Style:** Multi-shot, edited to feel like a continuous world (1917-inspired pacing, NOT a literal single take)  
+**Shoot Time:** 9:30 AM  
+**Weather:** Cloudy — excellent diffused light, zero harsh shadows. Do not reschedule for sun.  
+**Location:** Sanskardham Campus  
 
 ---
 
-> **DIRECTOR'S NOTE:**
-> This film has zero visible cuts. The camera is a ghost — it walks with the creators,
-> follows the robot, drifts close when emotion peaks, pulls back when the world
-> needs to speak. Monologues happen mid-stride. Nothing is delivered to camera
-> unless specified. Think of it as eavesdropping on something real.
+> **DIRECTOR'S NOTE — Read this first:**
 > 
-> **Key rule: The creators never stop moving. Stillness kills single-takes.
-> Every word is spoken while doing something — fixing a wire, walking a corridor,
-> watching the robot navigate. The audience follows people who cannot wait.**
+> This film is not about a finished product. It is about the people building
+> something that matters, and the intelligence behind it. 
+>
+> **Filming strategy:** The AI pipeline and dashboard run live on the PC. 
+> The chassis is a physical proof of concept — we film it as a component, 
+> not a finished autonomous robot. The screens, the code, the logic — THAT 
+> is what we show running. Nobody expects a student project to be shipping 
+> firmware. They expect to see that you understand the problem and solved 
+> it in software. So that's what we show.
+>
+> **GoPro note:** Wide angle is your friend, not your enemy. Get low. Get close.
+> The GoPro's native wide lens makes small things look significant — use that.
+> Boya Mic Mini clips on the shirt collar. Record a 30-second test before every
+> monologue section and play it back in earphones to check levels.
 
 ---
 
-## PRE-PRODUCTION NOTES
+## GOPRO SETTINGS — Lock these in before you start
 
-| Item | Detail |
-|---|---|
-| **Camera** | Sony FX3 or A7S III — IBIS + gimbal (DJI RS3 Pro) |
-| **Lens** | 24mm prime (wide enough to stay close without distortion) |
-| **Aspect Ratio** | 2.39:1 Anamorphic letterbox (gives it the cinematic weight) |
-| **Colour Grade** | Desaturated teal-orange base with warm highlights — gritty, real |
-| **Audio** | Wireless lavs on each creator + directional boom operator follows |
-| **Locations (in order)** | Empty outdoor path → Workshop/lab → Open courtyard → Road/footpath with pedestrians |
-| **Music** | No score during the film. Silence + ambient sound only. Music enters only at the final 45 seconds. |
-| **Crew** | Camera operator + gimbal assist (2 operators hand off via "touch and go" for invisible transitions) + 1 boom op + 1 lighting assistant with battery LED |
+| Setting | Value | Why |
+|---|---|---|
+| Mode | Video 4K/30fps or 2.7K/60fps | 60fps gives smoother motion when slowed in edit |
+| HyperSmooth | ON (Boost mode) | Kills all handheld shake |
+| Protune | ON | More colour data for grading |
+| ISO | 100–400 (cloudy = plenty of light, keep it clean) |
+| Colour | Flat / Log | Gives you more in post |
+| Sharpness | Low | Looks more cinematic, less "action cam" |
+| White Balance | Cloudy preset, NOT Auto | Prevents colour shifting between shots |
+| Audio | Disable GoPro internal mic — rely entirely on Boya |
+| Boya Mic | Clip to shirt collar, cable hidden under clothing, gain at 75% |
 
----
-
-## THE FILM
-
----
-
-### `00:00 — 00:35` | OPENING: THE WORLD BEFORE THE BOT
-
-**[CAMERA — EXT. FOOTPATH/CORRIDOR — GOLDEN HOUR OR OVERCAST]**
-
-The frame opens on an empty footpath. Not dramatic — just ordinary.
-Cracked concrete. A tree. Someone's shoes disappearing around a corner.
-
-The camera drifts slowly forward, low, about knee height — like it is looking for something.
-
-A cane enters frame left. Just the bottom of it, tapping the ground. It belongs to someone we never fully see. The camera does NOT follow them. It lets them pass.
-
-Silence except for the tap-tap-tap of the cane fading away.
-
-**HOLD for 5 seconds on empty path.**
-
-Then — faint. A motor whirring. The NEMO bot rolls into frame from a gap between two pillars, moving steadily in the same direction the cane just went.
-
-The camera rises slowly to rover height, matching its pace. We are now beside it.
+> **Sync tip:** At the start of every new clip, clap once loudly on camera.
+> This gives you a sync point when matching Boya audio to GoPro video in the edit.
 
 ---
 
-### `00:35 — 01:45` | THE LAB — CREATOR 1 ENTERS
-
-**[CAMERA — INT. WORKSHOP/LAB — DOOR OPENS]**
-
-The camera drifts through an open door into the lab. Cables everywhere. A laptop with terminal output scrolling. Soldering iron cooling on a stand.
-
-**CREATOR 1** walks in from behind camera — we feel them before we see them. They go straight to the workbench, pick up a screwdriver, crouch down near the bot's chassis.
-
-The camera stays wide. Watching them work. **5 seconds of just their hands.**
-
-Then Creator 1 speaks — not to camera, not to anyone. Just... out loud. Like a thought they've been holding for weeks.
+## SHOT BREAKDOWN
 
 ---
 
-**CREATOR 1 MONOLOGUE — "Why"**
+### SECTION A — `00:00 to 01:15` | THE B-ROLL OPENING (1917 STYLE)
 
-> *(crouched, tightening a wheel mount, voice casual — almost bored — but it builds)*
->
-> "The thing nobody asks us is — why a rover? Why not just an app, or a smarter cane,
-> or better audio glasses?
->
-> *(pause — taps the side of the chassis)*
->
-> Because those already exist. And they cost forty thousand rupees. And they break.
-> And they need someone who can read a manual to fix them.
->
-> This thing— 
->
-> *(stands up, holds the rover at arm's length, examines it)*
->
-> — this is built from parts you can find in any electronics shop in this city. I'm serious.
-> The motors are from an old printer. The chassis is cut acrylic. If it breaks?
-> You open it, you fix it. You don't send it back to Germany and wait six weeks.
->
-> *(sets it down gently, starts walking toward the laptop)*
->
-> That's the whole point. It has to be real for the people it's built for."
+**This is your most important section. It sets the entire tone.**
 
-The camera follows them to the laptop. We see the terminal — YOLO detection running, bounding boxes blinking.
+The 1917 opening works because it is quiet. Two soldiers asleep in a field of tall grass — the world doesn't know what's coming yet. You need that same feeling.
+
+**Do NOT start with the bot. Do NOT start with code. Start with the campus.**
 
 ---
 
-### `01:45 — 02:50` | CREATOR 2 WALKS IN — THE ARGUMENT
+**SHOT A1 — Wide establishing. Camera low, tilted up slightly.**
 
-**[CAMERA — INT. LAB — SEAMLESS]**
+Shoot the Sanskardham campus path early in the morning quiet. Cloudy sky above, footpath ahead. 
 
-The door bangs open. **CREATOR 2** walks in fast, holding their phone up, playing back video footage of the bot navigating — we can hear it faintly from the phone speaker.
+GoPro placed on the ground (use the flat adhesive mount) pointing slightly upward. Nobody in frame for 5 full seconds. Just the path, trees, sky.
 
-They don't greet Creator 1. They just walk straight to them, turn the phone screen toward them.
-
-**CREATOR 2:** *(interrupting, almost irritated, but excited)*
-> "Okay so — look. The model is flinching on transparent surfaces. The glass door at the canteen? It walks straight into it. Every time."
-
-**CREATOR 1:** *(not looking up from laptop)*
-> "I know. Transparent surfaces are a known YOLO failure mode. We documented it."
-
-**CREATOR 2:**
-> "Documented it or solved it?"
-
-**CREATOR 1:** *(small pause)*
-> "...Documented it."
-
-**CREATOR 2:** *(laughs — short, not cruel)*
-> "Okay so here's what I'm thinking—"
-
-They both start walking out of the lab. The camera follows immediately. We are in the corridor now without a cut.
+*This is your 1917 grass field. Empty world. Before anything begins.*
 
 ---
 
-### `02:50 — 04:15` | THE CORRIDOR WALK — TECHNICAL HONESTY
+**SHOT A2 — Close ground-level: shoes on concrete.**
 
-**[CAMERA — CORRIDOR/WALKWAY — TRACKING SHOT, SLIGHTLY AHEAD OF THEM]**
+GoPro pointed down and forward, held at ankle height. We see a pair of shoes walking — slow, deliberate pace. Shot lasts 8 seconds.
 
-The camera is now in front of them, pulling backward as they walk. We see both faces. They are mid-debate, comfortable — this is clearly how they work.
+*We follow someone but don't know who yet.*
 
-**CREATOR 2 MONOLOGUE — "What We Got Wrong"**
+---
 
-> *(walking, gesturing with their phone)*
->
-> "Here's the honest version of this project:
-> The first six weeks were a disaster. Like — beautiful disaster.
->
-> *(Creator 1 nods, doesn't interrupt)*
->
-> We had the navigation working beautifully in simulation. On a laptop. With a clean dataset.
-> And then we took it outside for the first time —
->
-> *(stops walking for exactly one beat, then continues)*
->
-> — and it turned left into a tree. Hard. Like it committed to the tree.
->
-> *(Creator 1 laughs — genuine)*
->
-> And I remember standing there thinking: okay. So the gap between a working demo
-> and a thing that helps a real person is — that gap is the whole project.
->
-> Everything after that moment was us closing that gap.
-> The three-battery system, the relay failover, the zone detection logic —
-> all of that came from standing in front of that tree."
+**SHOT A3 — A corner of the campus — a person with a cane navigating a step.**
 
-The camera slowly drifts to the side — now they are in profile, still walking.
+Filmed from a distance, slightly telephoto if you have an attachment, otherwise medium wide. This person does not need to be visually impaired — they just need to be someone navigating the physical world with something in their hand.
 
-**CREATOR 1:** *(quieter, not performing)*
-> "The battery thing was actually the scariest part.
-> If it loses power mid-navigation, mid-road—"
+Hold for 6 seconds. They move through frame and exit. Camera stays on the empty space they just left.
 
-**CREATOR 2:** *(finishing the sentence)*
-> "Someone gets hurt. Yeah."
+*The problem — shown wordlessly.*
+
+---
+
+**SHOT A4 — Slow reveal of the NEMO chassis.**
+
+GoPro on ground level. The chassis is placed on a flat surface — workbench, bench outside, campus step. Camera starts tight on the wheel, then slowly tilts up to show the whole chassis.
+
+The chassis should be clean. Wired neatly. If there are exposed components, that's fine — it looks technical, not broken.
+
+**Hold for 5 seconds. No movement. No voice. Just the object.**
+
+*This is your match cut from the empty path to the thing being built for it.*
+
+---
+
+**SHOT A5 — The PC screen. The AI running.**
+
+GoPro pointing at laptop screen running `nemo_demo.py --sim`. We see the dashboard — bounding boxes, zone bars, the ARDUINO UNO Q branding. The simulation is live and moving.
+
+Camera slowly drifts in closer toward the screen.
+
+*The brain. Before the body.*
+
+---
+
+### SECTION B — `01:15 to 03:15` | CREATOR 1 — THE LOGIC
+
+**[LOCATION: Outdoor bench or campus wall — seated or standing]**
+
+Creator 1 is sitting with the laptop open showing the running demo. Boya Mic on. The GoPro is handheld, held close — about 60cm from their face, slightly below eye level (slightly looking up at them). 
+
+Cloudy light = their face is perfectly lit from above with no harsh shadows. Use this.
+
+**They do NOT look at the camera.** They look at the laptop, at the bot chassis, at the middle distance. They are thinking out loud.
+
+---
+
+**CREATOR 1 MONOLOGUE — "The Problem We Actually Solved"**
+
+> *(looking at the screen — casual, like explaining to a friend)*
+>
+> "The navigation systems that exist for visually impaired people work.
+> But they're expensive. They require maintenance contracts.
+> They require the person using them to have access to the right service center.
+>
+> What we built is designed around a different assumption:
+> that the person using this might not be in a city with a service center.
+> That they might need to open it up and fix it themselves.
+> Or hand it to someone nearby who can.
+>
+> *(taps the chassis)*
+>
+> Off-the-shelf parts. Open source model. Everything documented.
+> That's the design decision underneath every other design decision."
+
+---
+
+**SHOT B-INSERT: Screen close-up while Creator 1 talks (cutaway)**
+
+GoPro pointed at the laptop screen showing zone detection live. Can be filmed separately and cut in during the monologue in edit. This gives the editor a tool to breathe the speech — show the screen for 3 seconds, cut back to face, let them continue.
+
+---
+
+**CREATOR 1 continues:**
+
+> "The AI side — we're running YOLOv5n. Nano. Deliberately small.
+> Not because we couldn't use a bigger model. Because on the target hardware,
+> smaller means faster, and faster means safer.
+>
+> *(points at the three zones on screen)*
+>
+> Left, center, right. Three zones. The model decides which is clear.
+> The motor controller gets one of four commands: forward, stop, steer left, steer right.
+> That's the whole navigation logic.
+>
+> Simple is not a weakness here. Simple is the point."
+
+---
+
+### SECTION C — `03:15 to 04:45` | THE BUILD — B-ROLL MONTAGE
+
+**[NO DIALOGUE — let the ambient campus audio breathe here]**
+
+This section is pure visual. No talking. Let the images do the work. Cloud-diffused light at Sanskardham will make everything look considered and clean.
+
+Shoot all of these and choose the best 4–5 in the edit:
+
+---
+
+**SHOT C1 — Hands and the PCB / wiring.**
+GoPro extreme close-up on hands adjusting wires on the board. 8 seconds.
+
+**SHOT C2 — The screen from the creator's POV.**
+GoPro held at creator's eye level looking at the screen. We see them reflected faintly in the screen. 6 seconds.
+
+**SHOT C3 — Arduino UNO Q board — static close-up.**
+Just the board on a table. The camera doesn't move. Let the components speak.
+
+**SHOT C4 — The chassis from the front, camera low.**
+GoPro on ground. Camera looking up at the front of the chassis as if the chassis is much larger than it is. The wide lens exaggerates the scale. This is the shot that makes a POC look significant.
+
+**SHOT C5 — Creator 2 typing, mid-focus on hands.**
+Slightly out of focus on the face, sharp on the keyboard. Terminal output scrolling.
+
+**SHOT C6 — Wide campus shot. Creators in background. Chassis in foreground.**
+GoPro on a flat surface, chassis in the near foreground (blurry), creators at a bench in the background. Establishes the relationship between the object and the people.
+
+---
+
+### SECTION D — `04:45 to 06:30` | CREATOR 2 — THE ENGINEERING
+
+**[LOCATION: Different spot on campus — near a wall, or standing]**
+
+Creator 2 now. Same approach — Boya Mic, GoPro close and slightly low, no eye contact with camera.
+
+Creator 2 is holding a component — the Arduino board, or a battery — while they talk. Their hands are always doing something. This is important.
+
+---
+
+**CREATOR 2 MONOLOGUE — "Why the Hardware Works the Way It Does"**
+
+> *(examining the board in their hands)*
+>
+> "People ask why three batteries. It sounds like overkill.
+>
+> *(looks up — not at camera, at the middle distance)*
+>
+> BAT-1 and BAT-2 are identical. Same cells, same capacity.
+> When BAT-1 runs down, BAT-2 cuts in instantly — the switchover is a Schottky diode,
+> it happens in microseconds. The user doesn't feel it. The system doesn't hiccup.
+>
+> BAT-3 is completely isolated. It only powers the compute — the AI, the decision logic.
+> Even if both motor batteries fail completely,
+> the brain is still alive, still processing, still sending alerts.
+>
+> *(sets the board down)*
+>
+> That's not a feature. That's a safety requirement.
+> When the person using this is navigating a road,
+> the system has to be more reliable than the road."
+
+---
+
+**CREATOR 2 continues:**
+
+> "We spent a long time on the safety testing.
+> Before anything went near a real environment,
+> we ran the system through 200 hours of simulation and hardware testing.
+>
+> Because you can't build something for someone who trusts it with their safety
+> and cut corners on the testing. That's not a tradeoff that exists.
+>
+> *(small pause)*
+>
+> So we didn't."
+
+---
+
+**SHOT D-INSERT: Battery setup close-up (cutaway)**
+GoPro on the three-battery layout. Can be labelled BAT-1, BAT-2, BAT-3 with simple tape labels for clarity on camera. Filmed separately, cut in during edit at the battery explanation.
+
+---
+
+### SECTION E — `06:30 to 07:45` | BOTH CREATORS — THE WHY
+
+**[LOCATION: Side by side — campus path or bench. Cloudy sky behind them.]**
+
+This is the only section where both creators are in frame together. It is not a formal interview pose. They are side by side, slightly turned toward each other, talking naturally. The GoPro is wide enough to hold both in frame from a metre away.
+
+This section should feel like a conversation that just happens to be on camera.
+
+---
 
 **CREATOR 1:**
-> "So we built three. BAT-1 and BAT-2 are identical — same capacity, same chemistry.
-> When BAT-1 drops, BAT-2 kicks in within milliseconds. Not seconds. Milliseconds.
-> There's no gap the user can feel.
-> BAT-3 is independent — just for the AI compute, isolated completely.
-> Even if the motors fail, the brain stays alive."
+> "What we want people to take away from this —
+> it's not the specific technology choices.
+> It's the idea that this kind of system can be built from accessible parts.
+>
+> The AI model is open source. The hardware is standard.
+> The decision architecture is documented. Any engineer, anywhere,
+> can read the codebase and understand it. And build on it."
 
-**CREATOR 2:** *(nodding)*
-> "Because the last thing you want is a robot that navigates perfectly
-> and then just... ghosts. Goes dark. On a footpath."
+**CREATOR 2:**
+> "And that matters because — the organisations doing this work at scale
+> are building things that cost thousands of dollars per unit.
+>
+> *(turns slightly toward Creator 1)*
+>
+> We're not trying to compete with that. We're trying to show
+> that the approach works at a fraction of that cost,
+> so that someone who wants to actually deploy this
+> in a context where that cost matters — has a starting point."
 
-They push through a door. Camera follows through.
+**CREATOR 1:** *(nodding)*
+> "This is a proof of concept. That's what it is and we're clear about that.
+> The point is that the concept is proven.
+> The navigation logic works. The AI pipeline works.
+> The safety architecture works.
+> What comes after that is engineering and resources. Not a question mark."
 
 ---
 
-### `04:15 — 05:30` | THE COURTYARD — THE BOT IS RUNNING
+### SECTION F — `07:45 to 09:00` | THE CLOSING B-ROLL
 
-**[CAMERA — EXT. COURTYARD/OPEN SPACE — NATURAL LIGHT]**
+**[BACK TO CAMPUS — same footpath as the opening]**
 
-They emerge into an open courtyard. The NEMO bot is already running — a second unit, pre-staged by crew off-camera. It is navigating the courtyard space on its own. Real pedestrians (or staged extras) walking past.
+Return to the footpath from SHOT A1. Camera back low on the ground. Same angle as the opening.
 
-The bot detects someone, steers left. Smooth.
-
-Both creators stop. Not staged — they genuinely watch it for a moment.
-
-The camera drifts slowly forward, past them, getting closer to the bot. We lose the creators in the background, slightly out of focus.
-
-**CREATOR 1** speaks from the background — we hear them but barely see them:
-
-> *(quietly, almost to themselves)*
-> "We tested it 200 hours before we let anyone touch it.
-> That's not a number we made up for a slide deck.
-> 200 hours. Because — you don't get to be sorry after the fact with something like this."
-
-The camera is now tight on the bot as it navigates around a chair. 
-
-Then — slowly — it pulls back to include both creators again. They are closer now. Creator 2 has their arms crossed, watching.
+No dialogue in this section. All ambient sound.
 
 ---
 
-### `05:30 — 06:30` | CREATOR 2 FINAL MONOLOGUE — THE PERSONAL PART
+**SHOT F1 — The chassis on the path.**
 
-**[CAMERA — STAYS IN COURTYARD — SLOW CIRCLE AROUND CREATOR 2]**
+The chassis is placed on the same footpath from the opening. Someone places it and steps back. GoPro ground level. We look at the chassis on the path — the same path a person with a cane was navigating in the opening shots.
 
-Creator 1 steps away — they walk back toward the bot, crouch down, check something on the undercarriage. The camera stays with Creator 2. Just them.
+Hold for 8 seconds.
 
-Creator 2 looks at the bot, then up — not at camera, at the sky, or the middle distance.
-
-**CREATOR 2 MONOLOGUE — "Who It Is For"**
-
-> *(no longer casual — this is real)*
->
-> "My uncle — my dad's brother — he lost his central vision three years ago.
-> Macular degeneration. Progressive. He lives alone.
->
-> *(beat)*
->
-> And I'm watching him adapt. And he's doing it. He's not broken, he's not helpless —
-> he's just navigating a world that wasn't designed for him.
-> And he's doing it with a stick and memory and whatever his phone can read aloud.
->
-> *(turns slightly — we see their profile)*
->
-> I'm not going to tell you this project solves his problem.
-> That would be a lie and I hate when people do that — 
-> use someone's life to make their pitch sound better.
->
-> What I'll say is: this is a first step built by people who understand that the step matters.
-> That the person at the end of it matters.
->
-> *(quieter)*
->
-> And if this thing — this scrappy, over-engineered, slightly tree-aggressive thing —
-> if it makes one person feel less like they're alone on that footpath—
->
-> *(doesn't finish the sentence)*
->
-> Yeah. That's why."
-
-**Silence. 4 full seconds.**
-
-The bot hums past frame. They watch it go.
+*The connection completes without a word.*
 
 ---
 
-### `06:30 — 07:30` | THE WALK TOGETHER — CLOSING MONOLOGUE
+**SHOT F2 — Screen + path in one frame.**
 
-**[CAMERA — EXT. FOOTPATH OUTSIDE — GOLDEN HOUR OR LATE AFTERNOON]**
+Creator holds the laptop showing the live simulation. Background is the actual path. The bounding boxes on screen are detecting what the real camera on the chassis would detect if it were running live.
 
-Without dialogue, both creators walk back toward the footpath from the opening. The camera is slightly ahead, pulling back — the same move as the corridor, but now outside. Wider. More sky.
-
-The bot is with them — rolling alongside. The three of them moving together.
-
-**CREATOR 1 FINAL WORDS — "What Comes Next"**
-
-> *(walking, relaxed, not wrapping up — just talking)*
->
-> "Someone's going to ask us what's next. What's the version two.
-> Better model, better chassis, maybe LiDAR, maybe SLAM navigation.
-> Maybe eventually it doesn't need us to set it up, it just — goes.
->
-> *(glances at Creator 2)*
->
-> But honestly right now? Right now I just want people to see this.
-> Not the pitch deck version. Not the version where everything works perfectly on video.
->
-> *(small laugh)*
->
-> The real version. Where it sometimes turns wrong, and we fix it.
-> Where the battery math took us three weeks to get right.
-> Where we argued about sensor fusion at 1am in a lab that smelled like solder.
->
-> That's the project. That's the whole project."
+*What the world looks like through NEMO's eyes.*
 
 ---
 
-### `07:30 — 08:15` | THE ENDING — THE SINGLE SHOT PAYOFF
+**SHOT F3 — Wide: Creators standing, chassis between them, campus behind.**
 
-**[CAMERA — EXT. FOOTPATH — CONTINUOUS]**
+The final image of them together. They're looking at the campus, not the camera. The bot chassis is in front of them at ground level. The GoPro is low, wide, with sky above.
 
-The creators slow down. The bot keeps going — rolling ahead on the footpath, alone now, navigating on its own.
-
-The camera lets the creators fall behind. We drift forward, following the bot.
-
-We are at shoulder height. The bot is small ahead of us, getting slightly further away.
-
-Then — from the opposite direction on the footpath — a person with a cane. **The same one from the opening.** *(or someone playing the same role)*
-
-The bot detects them. Steers smoothly to the left. Gives them room. 
-
-They pass each other. Neither knows the other exists.
-
-The camera slows. Holds on the empty path ahead.
-
-**FADE TO BLACK — not a cut. A true fade.**
+Hold 6 seconds.
 
 ---
 
-### `08:15 — 08:45` | MUSIC + CREDITS ROLL
+**SHOT F4 — Slow tilt up from the chassis wheel to sky.**
 
-**[OVER BLACK]**
+GoPro handheld, starting ground level at the wheel, slowly tilts all the way up to the cloudy sky. This is your final shot.
 
-A single piano note. Then a minimal score — something quiet and honest. Not triumphant. Just present.
+**Fade to black in edit — slow, not sudden.**
 
-**Title card:**
+---
+
+### SECTION G — `09:00 to 09:30` | TITLE CARDS
+
+**[OVER BLACK — in edit]**
 
 ```
 NEMO_SENSE
-A navigation aid for the visually impaired
 
+An AI-powered navigation aid for the visually impaired.
+```
+
+Then:
+```
 Built by: [Creator Names]
+[Institution / Program]
 ```
 
-Then one final card, held for 10 seconds:
+A final line, held for 8 seconds:
 
 ```
-"200 hours of safety testing before a single person touched it."
+"Open source. Reproducible. Built to be improved."
 ```
 
-**[END]**
+**Minimal ambient sound or silence. No dramatic music.**
 
 ---
 
-## PRODUCTION NOTES FOR THE CAMERA OPERATOR
+## PRACTICAL SHOT SCHEDULE FOR 9:30 AM SANSKARDHAM
 
-### The Invisible Handoff (for 1917-style)
-If two operators are needed for location transitions (lab to corridor to courtyard):
-- Operator A walks with subjects until they push through a door
-- At the moment the door swings shut behind subjects, Operator B is already positioned on the other side
-- Sync the swing — the door itself is the "cut" nobody sees
-- Practice this transition **at least 20 times** before filming
+Cloudy morning is ideal — light is consistent and will not change dramatically between shots.
 
-### Key Camera Rules
-| Situation | Camera Behaviour |
-|---|---|
-| Creator talking | Drift slowly — never fully static |
-| Emotional beat | Stop drifting. Hold. Let the words breathe |
-| Bot navigating | Stay low (below 50cm), match the bot's pace |
-| Two creators arguing | Slowly orbit — never settle on one face |
-| End sequence | Gradual slowdown — let the world grow larger around the bot |
-
-### What NOT to Do
-- Do NOT let the camera be still for more than 8 seconds (it kills the single-take feel)
-- Do NOT rush past technical dialogue — let it breathe, it's the proof this is real
-- Do NOT use dramatic camera tilts or zooms — keep all moves slow and deliberate
-- Do NOT direct the creators to look at camera — ever
-
-### Lighting Notes
-- Golden hour exterior is ideal but a heavily overcast day also works — soft, even, no harsh shadows
-- Interior lab: add one practical warm lamp on bench + a cool key from window or LED panel
-- Avoid high-contrast lighting — it looks like a commercial, not a film
-
----
-
-## SHOOTING SCHEDULE
-
-| Time Block | Location | What Happens |
+| Order | Shot | Minutes to Shoot |
 |---|---|---|
-| Dawn/early morning | Footpath | Opening + Closing shots (match light) |
-| Morning | Lab/workshop | Creator 1 monologue, Creator 2 entrance, corridor walk |
-| Midday | Courtyard | Bot navigation demo + Creator 2 personal monologue |
-| Late afternoon | Footpath again | Final walk + bot and cane person pass |
-| Evening (safety) | All | Pickup takes for any failed segments |
+| 1st | A1, A2 — Empty campus B-roll while it's freshest and quietest | 15 min |
+| 2nd | A3 — Person on campus path (recruit a friend or batchmate) | 10 min |
+| 3rd | A4, A5 — Chassis and screen reveals | 10 min |
+| 4th | B — Creator 1 monologue (do 3 takes, vary slightly each time) | 20 min |
+| 5th | C — Hands, PCB, board close-ups (B-roll batch) | 20 min |
+| 6th | D — Creator 2 monologue (3 takes) | 20 min |
+| 7th | E — Both creators together | 15 min |
+| 8th | F — Closing footpath shots | 15 min |
+| 9th | Pickups — anything that felt uncertain | 15 min |
 
-**Total estimated shoot time: 6 hours.** Plan for 4-6 complete run-throughs of the full 8-minute take.
-The "hero take" is almost never the first one. Breathe. Reset. Go again.
+**Total on campus: ~2.5 hours. Do not rush.**
 
 ---
 
-## CREATOR PREP NOTES
+## MONOLOGUE DELIVERY NOTES
 
-Your monologues are written as **guides, not scripts.** Know the shape of what you want to say. Know the opening line. Know the closing line. Fill the middle with what's true for you on the day.
+These are written as guides. **Know the ideas. Don't memorise the sentences.**
 
-The camera knows if you've memorised it. It always knows.
+The camera will know if you're reciting. Speak to the concept, not the script.
 
-**The rule:** If you lose the words, don't stop. Keep moving. Say something true, even if it's just — *"this part. This specific part is hard to explain."* — and then explain it. The camera will stay with you.
+**Things that make monologues feel real on a GoPro:**
+- Slight pauses while thinking are good — don't fill them
+- Looking at the object you're discussing (screen, chassis, board) while speaking is better than looking at camera
+- Incomplete sentences feel more honest than perfectly finished ones
+- If you lose the thread: say "actually — let me put it differently:" and continue. Keep it in.
 
-You built something real. Speak like people who built something real.
+**Things that kill it:**
+- Speaking too fast (nervous energy — slow down)
+- Perfect elocution (sounds like a script)
+- Eyes going to the camera to check if it's running
+
+---
+
+## EDIT GUIDANCE
+
+The raw footage will be cut into a flowing sequence. The "1917 feel" comes from:
+
+- **Long takes within each section** — don't cut every 3 seconds
+- **Ambient campus sound under everything** — wind, distant campus noise, not silence
+- **No background music until the title cards** — let the words carry
+- **Colour grade:** Slightly desaturated, cooled shadows, warm highlights (can be done in CapCut, DaVinci, or even GoPro's own Quik app with the "Matte" preset)
+- **Titles:** Simple white text on black. No animated graphics. No drop shadows.
+
+**Recommended CapCut colour settings for the cloudy morning footage:**
+- Brightness: -5
+- Contrast: +10  
+- Saturation: -15
+- Vignette: 20%
+- Colour Temperature: -5 (slightly cooler)
+
+---
+
+## CHECKLIST — BEFORE YOU START ROLLING
+
+- [ ] Boya Mic Minis charged and clipped
+- [ ] GoPro settings locked (Protune ON, HyperSmooth Boost, White Balance: Cloudy)
+- [ ] Spare GoPro battery and SD card
+- [ ] nemo_demo.py running on laptop in sim mode (`python nemo_demo.py --sim`)
+- [ ] Chassis cleaned up, wires tucked, nothing visibly broken on camera side
+- [ ] Campus path relatively clear of unrelated pedestrians for opening shots
+- [ ] Someone to help with the "person walking on path" shot (Shot A3)
+- [ ] Do a Boya audio check — play back 30 seconds before any monologue
