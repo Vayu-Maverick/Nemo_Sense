@@ -26,14 +26,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-
-# Quarky BLE (optional -- imported only if bleak is installed)
-try:
-    from bleak import BleakClient, BleakScanner
-    import bleak.exc
-    _BLE_OK = True
-except ImportError:
-    _BLE_OK = False
+import socket
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -549,80 +542,38 @@ def sim_bats(t0, tn):
 
 
 # ---------------------------------------------------------------------------
-# Quarky BLE link
+# Quarky WiFi (UDP) link
 # ---------------------------------------------------------------------------
-# Protocol (sent from laptop → Quarky over BLE):
+# Protocol (sent from laptop → Quarky over WiFi UDP):
 #   M:LEFT,RIGHT\n     motor command  (-255 to 255 each wheel)
 #
-# Commands are queued in a background thread running an asyncio event loop
-# so the AI video loop is never stalled.
+# UDP is connectionless and non-blocking, so it sends instantly without
+# stalling the video frame rate, and doesn't suffer from pairing issues.
 
-QUARKY_BLE_SERVICE = "19B10000-E8F2-537E-4F6C-D104768A1214"
-QUARKY_BLE_CHAR    = "19B10001-E8F2-537E-4F6C-D104768A1214"
+class QuarkyWiFiLink:
+    """Non-blocking UDP socket link to Quarky motor controller."""
 
-class QuarkyBLELink:
-    """Non-blocking BLE link to Quarky motor controller."""
-
-    def __init__(self):
-        self._q: queue.Queue = queue.Queue(maxsize=4)
-        self.connected = False
-        self._stop_event = threading.Event()
-        
-        if not _BLE_OK:
-            print("[QUARKY BLE] bleak not installed. Run: pip install bleak")
-            return
-
-        # Start BLE worker thread
-        self._thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._thread.start()
-
-    def _run_loop(self):
-        asyncio.run(self._async_worker())
-
-    async def _async_worker(self):
-        print("[QUARKY BLE] Scanning for 'Quarky_Nemo'...")
-        device = await BleakScanner.find_device_by_name("Quarky_Nemo", timeout=10.0)
-        
-        if not device:
-            print("[QUARKY BLE] Not found. Ensure Quarky is powered and advertising.")
-            return
-
-        print(f"[QUARKY BLE] Found {device.name} at {device.address}, connecting...")
-        try:
-            async with BleakClient(device) as client:
-                self.connected = True
-                print("[QUARKY BLE] Connected!")
-                
-                while not self._stop_event.is_set():
-                    try:
-                        # Wait for a command, but timeout quickly to check stop_event
-                        cmd = self._q.get(timeout=0.1)
-                        await client.write_gatt_char(QUARKY_BLE_CHAR, cmd.encode(), response=False)
-                    except queue.Empty:
-                        pass
-                    except Exception as e:
-                        print(f"[QUARKY BLE] Write error: {e}")
-                        break
-        except Exception as e:
-            print(f"[QUARKY BLE] Connection failed: {e}")
-            
-        self.connected = False
-        print("[QUARKY BLE] Disconnected.")
+    def __init__(self, ip: str, port: int = 8080):
+        self.addr = (ip, port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Non-blocking socket just in case
+        self.sock.setblocking(False)
+        print(f"[QUARKY WIFI] Ready to send UDP commands to {ip}:{port}")
 
     def send(self, action: str, l_pwm: int, r_pwm: int):
-        """Queue a motor command (non-blocking)."""
-        if not self.connected:
-            return
-        cmd = f"M:{l_pwm},{r_pwm}\n"
+        """Send a motor command over UDP."""
+        cmd = f"M:{l_pwm},{r_pwm}\n".encode()
         try:
-            self._q.put_nowait(cmd)
-        except queue.Full:
-            pass  # drop oldest, keep latest
+            self.sock.sendto(cmd, self.addr)
+        except Exception:
+            pass
 
     def close(self):
-        self._stop_event.set()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=2.0)
+        try:
+            self.sock.sendto(b"M:0,0\n", self.addr)
+            self.sock.close()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -639,12 +590,12 @@ def main():
     ap.add_argument("--stream",  type=str,  default="",  help="MJPEG stream URL")
     ap.add_argument("--model",   type=str,  default=None)
     ap.add_argument("--no-path", action="store_true",   help="Disable AR overlay")
-    ap.add_argument("--quarky-ble", action="store_true",
-                    help="Connect to Quarky over BLE instead of simulating")
+    ap.add_argument("--quarky-ip", type=str, default="",
+                    help="IP address of Quarky for UDP control")
     args = ap.parse_args()
 
-    # -- Quarky BLE link --
-    quarky = QuarkyBLELink() if args.quarky_ble else None
+    # -- Quarky WiFi link --
+    quarky = QuarkyWiFiLink(args.quarky_ip) if args.quarky_ip else None
 
     yolo = YOLOv5(find_model() if not args.model else args.model)
 
