@@ -27,6 +27,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 import socket
+import asyncio
+
+# Quarky BLE (optional -- imported only if bleak is installed)
+try:
+    from bleak import BleakClient, BleakScanner
+    import bleak.exc
+    _BLE_OK = True
+except ImportError:
+    _BLE_OK = False
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -542,6 +551,76 @@ def sim_bats(t0, tn):
 
 
 # ---------------------------------------------------------------------------
+# Quarky BLE link
+# ---------------------------------------------------------------------------
+# Protocol (sent from laptop → Quarky over BLE):
+#   M:LEFT,RIGHT\n     motor command  (-255 to 255 each wheel)
+
+QUARKY_BLE_SERVICE = "19B10000-E8F2-537E-4F6C-D104768A1214"
+QUARKY_BLE_CHAR    = "19B10001-E8F2-537E-4F6C-D104768A1214"
+
+class QuarkyBLELink:
+    """Non-blocking BLE link to Quarky motor controller."""
+
+    def __init__(self):
+        self._q: queue.Queue = queue.Queue(maxsize=4)
+        self.connected = False
+        self._stop_event = threading.Event()
+        
+        if not _BLE_OK:
+            print("[QUARKY BLE] bleak not installed. Run: pip install bleak")
+            return
+
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+
+    def _run_loop(self):
+        asyncio.run(self._async_worker())
+
+    async def _async_worker(self):
+        print("[QUARKY BLE] Scanning for 'Quarky_Nemo'...")
+        device = await BleakScanner.find_device_by_name("Quarky_Nemo", timeout=10.0)
+        
+        if not device:
+            print("[QUARKY BLE] Not found. Ensure Quarky is advertising.")
+            return
+
+        print(f"[QUARKY BLE] Found {device.name}, connecting...")
+        try:
+            async with BleakClient(device) as client:
+                self.connected = True
+                print("[QUARKY BLE] Connected!")
+                
+                while not self._stop_event.is_set():
+                    try:
+                        cmd = self._q.get(timeout=0.1)
+                        await client.write_gatt_char(QUARKY_BLE_CHAR, cmd.encode(), response=False)
+                    except queue.Empty:
+                        pass
+                    except Exception as e:
+                        print(f"[QUARKY BLE] Write error: {e}")
+                        break
+        except Exception as e:
+            print(f"[QUARKY BLE] Connection failed: {e}")
+            
+        self.connected = False
+        print("[QUARKY BLE] Disconnected.")
+
+    def send(self, action: str, l_pwm: int, r_pwm: int):
+        if not self.connected:
+            return
+        try:
+            self._q.put_nowait(f"M:{l_pwm},{r_pwm}\n")
+        except queue.Full:
+            pass
+
+    def close(self):
+        self._stop_event.set()
+        if hasattr(self, '_thread') and self._thread.is_alive():
+            self._thread.join(timeout=2.0)
+
+
+# ---------------------------------------------------------------------------
 # Quarky WiFi (UDP) link
 # ---------------------------------------------------------------------------
 # Protocol (sent from laptop → Quarky over WiFi UDP):
@@ -590,12 +669,18 @@ def main():
     ap.add_argument("--stream",  type=str,  default="",  help="MJPEG stream URL")
     ap.add_argument("--model",   type=str,  default=None)
     ap.add_argument("--no-path", action="store_true",   help="Disable AR overlay")
+    ap.add_argument("--quarky-ble", action="store_true",
+                    help="Connect to Quarky over BLE")
     ap.add_argument("--quarky-ip", type=str, default="",
                     help="IP address of Quarky for UDP control")
     args = ap.parse_args()
 
-    # -- Quarky WiFi link --
-    quarky = QuarkyWiFiLink(args.quarky_ip) if args.quarky_ip else None
+    # -- Robot link --
+    quarky = None
+    if args.quarky_ble:
+        quarky = QuarkyBLELink()
+    elif args.quarky_ip:
+        quarky = QuarkyWiFiLink(args.quarky_ip)
 
     yolo = YOLOv5(find_model() if not args.model else args.model)
 
