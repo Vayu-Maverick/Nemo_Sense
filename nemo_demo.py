@@ -21,19 +21,19 @@ Keys:  Q/ESC=quit   P=pause
 """
 
 from __future__ import annotations
-import argparse, math, time, threading, queue
+import argparse, math, time, threading, queue, asyncio
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-# Quarky serial (optional -- only imported if --quarky flag is used)
+# Quarky BLE (optional -- imported only if bleak is installed)
 try:
-    import serial
-    import serial.tools.list_ports
-    _SERIAL_OK = True
+    from bleak import BleakClient, BleakScanner
+    import bleak.exc
+    _BLE_OK = True
 except ImportError:
-    _SERIAL_OK = False
+    _BLE_OK = False
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -549,72 +549,65 @@ def sim_bats(t0, tn):
 
 
 # ---------------------------------------------------------------------------
-# Quarky serial link
+# Quarky BLE link
 # ---------------------------------------------------------------------------
-# Protocol (sent from laptop → Quarky over USB serial at 115200 baud):
+# Protocol (sent from laptop → Quarky over BLE):
 #   M:LEFT,RIGHT\n     motor command  (-255 to 255 each wheel)
-#   S:STOP\n           emergency stop
 #
-# The Quarky runs quarky_receiver.ino which parses these commands.
-# Commands are non-blocking -- queued in a background thread so the
-# AI loop is never stalled waiting for serial writes.
+# Commands are queued in a background thread running an asyncio event loop
+# so the AI video loop is never stalled.
 
-_ACTION_TO_PWM: dict[str, tuple[int, int]] = {
-    "FORWARD":     ( 160,  160),
-    "STOP":        (   0,    0),
-    "STEER LEFT":  (  40,  160),
-    "STEER RIGHT": ( 160,   40),
-}
+QUARKY_BLE_SERVICE = "19B10000-E8F2-537E-4F6C-D104768A1214"
+QUARKY_BLE_CHAR    = "19B10001-E8F2-537E-4F6C-D104768A1214"
 
-class QuarkyLink:
-    """Non-blocking serial link to Quarky motor controller."""
+class QuarkyBLELink:
+    """Non-blocking BLE link to Quarky motor controller."""
 
-    BAUD = 115200
-    QUARKY_KEYWORDS = ("quarky", "ch340", "cp210", "ftdi", "arduino", "usb serial")
-
-    def __init__(self, port: str):
-        self._port: serial.Serial | None = None
+    def __init__(self):
         self._q: queue.Queue = queue.Queue(maxsize=4)
         self.connected = False
-
-        if not _SERIAL_OK:
-            print("[QUARKY] pyserial not installed. Run: pip install pyserial")
+        self._stop_event = threading.Event()
+        
+        if not _BLE_OK:
+            print("[QUARKY BLE] bleak not installed. Run: pip install bleak")
             return
 
-        resolved = self._resolve_port(port)
-        if not resolved:
-            print(f"[QUARKY] Port not found: {port}")
+        # Start BLE worker thread
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+
+    def _run_loop(self):
+        asyncio.run(self._async_worker())
+
+    async def _async_worker(self):
+        print("[QUARKY BLE] Scanning for 'Quarky_Nemo'...")
+        device = await BleakScanner.find_device_by_name("Quarky_Nemo", timeout=10.0)
+        
+        if not device:
+            print("[QUARKY BLE] Not found. Ensure Quarky is powered and advertising.")
             return
 
+        print(f"[QUARKY BLE] Found {device.name} at {device.address}, connecting...")
         try:
-            self._port = serial.Serial(resolved, self.BAUD, timeout=0.05)
-            time.sleep(1.5)  # allow board to reset
-            self.connected = True
-            print(f"[QUARKY] Connected on {resolved}")
+            async with BleakClient(device) as client:
+                self.connected = True
+                print("[QUARKY BLE] Connected!")
+                
+                while not self._stop_event.is_set():
+                    try:
+                        # Wait for a command, but timeout quickly to check stop_event
+                        cmd = self._q.get(timeout=0.1)
+                        await client.write_gatt_char(QUARKY_BLE_CHAR, cmd.encode(), response=False)
+                    except queue.Empty:
+                        pass
+                    except Exception as e:
+                        print(f"[QUARKY BLE] Write error: {e}")
+                        break
         except Exception as e:
-            print(f"[QUARKY] Open failed: {e}")
-            return
-
-        # Background writer thread
-        t = threading.Thread(target=self._writer, daemon=True)
-        t.start()
-
-    def _resolve_port(self, port: str) -> str | None:
-        if port.lower() != "auto":
-            return port
-        # Scan all serial ports, prefer known Quarky/CH340 devices
-        ports = list(serial.tools.list_ports.comports())
-        for p in ports:
-            desc = (p.description or "").lower()
-            hwid = (p.hwid or "").lower()
-            if any(k in desc or k in hwid for k in self.QUARKY_KEYWORDS):
-                print(f"[QUARKY] Auto-detected: {p.device} ({p.description})")
-                return p.device
-        # Fallback: return first available port
-        if ports:
-            print(f"[QUARKY] Auto fallback to first port: {ports[0].device}")
-            return ports[0].device
-        return None
+            print(f"[QUARKY BLE] Connection failed: {e}")
+            
+        self.connected = False
+        print("[QUARKY BLE] Disconnected.")
 
     def send(self, action: str, l_pwm: int, r_pwm: int):
         """Queue a motor command (non-blocking)."""
@@ -626,25 +619,10 @@ class QuarkyLink:
         except queue.Full:
             pass  # drop oldest, keep latest
 
-    def _writer(self):
-        while True:
-            cmd = self._q.get()
-            if self._port and self._port.is_open:
-                try:
-                    self._port.write(cmd.encode())
-                except Exception:
-                    pass
-
     def close(self):
-        if self._port and self._port.is_open:
-            # Send stop before closing
-            try:
-                self._port.write(b"M:0,0\n")
-                time.sleep(0.1)
-                self._port.close()
-            except Exception:
-                pass
-        print("[QUARKY] Disconnected")
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2.0)
 
 
 # ---------------------------------------------------------------------------
@@ -661,15 +639,12 @@ def main():
     ap.add_argument("--stream",  type=str,  default="",  help="MJPEG stream URL")
     ap.add_argument("--model",   type=str,  default=None)
     ap.add_argument("--no-path", action="store_true",   help="Disable AR overlay")
-    ap.add_argument("--quarky",  type=str,  default="",
-                    help="Quarky COM port (e.g. COM5) or 'auto' to scan")
+    ap.add_argument("--quarky-ble", action="store_true",
+                    help="Connect to Quarky over BLE instead of simulating")
     args = ap.parse_args()
 
-    # -- Quarky serial link --
-    quarky = QuarkyLink(args.quarky) if args.quarky else None
-    if quarky and not quarky.connected:
-        print("[QUARKY] Not connected -- running without robot output")
-        quarky = None
+    # -- Quarky BLE link --
+    quarky = QuarkyBLELink() if args.quarky_ble else None
 
     yolo = YOLOv5(find_model() if not args.model else args.model)
 

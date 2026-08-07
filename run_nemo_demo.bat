@@ -4,26 +4,24 @@ title NEMO_SENSE -- AI Navigation Dashboard
 echo.
 echo  +-----------------------------------------------------------+
 echo  ^|   NEMO_SENSE  --  AI Navigation Dashboard v4             ^|
-echo  ^|   Live webcam + AR path overlay + Quarky control         ^|
+echo  ^|   Live webcam + AR path overlay + Quarky BLE control     ^|
 echo  +-----------------------------------------------------------+
 echo.
 echo  [1]  START  (webcam only -- no robot)
-echo  [2]  START + Quarky auto-detect (USB)
-echo  [3]  START + Quarky on specific COM port
-echo  [4]  WiFi stream from Arduino Q
-echo  [5]  Exit
+echo  [2]  START + Quarky BLE Connect
+echo  [3]  WiFi stream from Arduino Q
+echo  [4]  Exit
 echo.
 set /p C="  Choose: "
 
 if "%C%"=="1" goto SOLO
-if "%C%"=="2" goto QAUTO
-if "%C%"=="3" goto QPORT
-if "%C%"=="4" goto STREAM
-if "%C%"=="5" exit /b
+if "%C%"=="2" goto QBLE
+if "%C%"=="3" goto STREAM
+if "%C%"=="4" exit /b
 goto SOLO
 
 :INSTALL
-python -m pip install opencv-python numpy onnxruntime pyserial -q
+python -m pip install opencv-python numpy onnxruntime bleak -q
 goto :EOF
 
 :SOLO
@@ -33,18 +31,11 @@ echo [*] Webcam-only mode (no robot). AR path shown on screen.
 python nemo_demo.py
 pause & exit /b
 
-:QAUTO
+:QBLE
 call :INSTALL
 echo.
-echo [*] Auto-detecting Quarky...
-python nemo_demo.py --quarky auto
-pause & exit /b
-
-:QPORT
-call :INSTALL
-echo.
-set /p PORT="  Quarky COM port (e.g. COM5): "
-python nemo_demo.py --quarky %PORT%
+echo [*] Connecting to Quarky over BLE...
+python nemo_demo.py --quarky-ble
 pause & exit /b
 
 :STREAM
