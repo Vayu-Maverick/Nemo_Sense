@@ -33,3 +33,17 @@ desktop.ini
 # IDE
 .vscode/
 .idea/
+
+# Internal dev scripts and docs
+POC_DOCUMENTATION.md
+update_*.py
+scan_*.py
+find_*.py
+force_*.py
+test_gps.py
+test_serial_import.py
+test_wifi_sensing.py
+setup_autostart.bat
+push_to_unoq.bat
+factory_reset.bat
+

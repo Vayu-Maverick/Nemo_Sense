@@ -26,8 +26,7 @@
 9. [Repository Structure](#repository-structure)
 10. [How to Build & Run](#how-to-build--run)
 11. [Testing & Results](#testing--results)
-12. [Branches](#branches)
-13. [License](#license)
+12. [License](#license)
 
 ---
 
@@ -738,15 +737,6 @@ python q_brain.py --port COM4 --no-wifi
 | School corridor (indoor) | 19/20 trials collision-free | Best performance, controlled lighting |
 | Campus open area (outdoor) | 8/10 | Direct sunlight glare reduces confidence |
 | Market street (outdoor, busy) | 7/10 | High crowd density confuses zone classification |
-
----
-
-## Branches
-
-| Branch | What it contains | Who should look at it |
-|---|---|---|
-| [`main`](https://github.com/Vayu-Maverick/Nemo_Sense/tree/main) | Complete project — all code, docs, tools, renders | Full project view |
-| [`production`](https://github.com/Vayu-Maverick/Nemo_Sense/tree/production) | Only code that runs the robot | **Judges — start here** |
 
 ---
 
