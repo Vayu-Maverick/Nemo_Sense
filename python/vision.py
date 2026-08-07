@@ -18,7 +18,6 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -56,13 +55,12 @@ class ObstacleInfo:
     confidence: float
     distance_m: float              # estimated distance in metres
     zone: str                      # "left", "center", or "right"
-    bbox: Tuple[int, int, int, int]  # (x1, y1, x2, y2) in input coords
-
+    bbox: tuple[int, int, int, int]  # (x1, y1, x2, y2) in input coords
 
 @dataclass
 class VisionResult:
     """Aggregated result of one vision cycle."""
-    obstacles: List[ObstacleInfo] = field(default_factory=list)
+    obstacles: list[ObstacleInfo] = field(default_factory=list)
     closest_distance: float = float("inf")
     recommended_action: str = "clear"   # clear | steer_left | steer_right | stop
     zone_min_dist: dict = field(default_factory=lambda: {
@@ -73,10 +71,9 @@ class VisionResult:
     frame_time_ms: float = 0.0
     source: str = "unknown"             # "webcam" | "ble_phone" | "simulated"
 
-
 # ── Helper: non-maximum suppression ──────────────────────────────────────
 
-def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thresh: float) -> List[int]:
+def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thresh: float) -> list[int]:
     """
     Greedy NMS.  boxes shape (N, 4) as x1,y1,x2,y2;  scores shape (N,).
     Returns list of kept indices.
@@ -90,7 +87,7 @@ def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thresh: float) -> List[int]:
     y2 = boxes[:, 3]
     areas = (x2 - x1) * (y2 - y1)
     order = scores.argsort()[::-1]
-    keep: List[int] = []
+    keep: list[int] = []
 
     while order.size > 0:
         i = order[0]
@@ -108,7 +105,6 @@ def _nms(boxes: np.ndarray, scores: np.ndarray, iou_thresh: float) -> List[int]:
         order = order[remaining + 1]
 
     return keep
-
 
 # ── Simulated camera ──────────────────────────────────────────────────────
 
@@ -164,7 +160,7 @@ class SimulatedCamera:
         turn_rate = (r_pwm - l_pwm) * 0.1
         self.person_x += turn_rate
 
-    def read(self) -> Tuple[bool, np.ndarray]:
+    def read(self) -> tuple[bool, np.ndarray]:
         """Generate the next synthetic frame."""
         self._frame_count += 1
         t = self._frame_count / max(self.fps, 1)
@@ -250,10 +246,9 @@ class SimulatedCamera:
     def set(self, *args):
         pass
 
-
 # ── Direct Webcam Opener ──────────────────────────────────────────────────
 
-def _scan_for_webcam(max_index: int = 0) -> Optional[cv2.VideoCapture]:
+def _scan_for_webcam(max_index: int = 0) -> cv2.VideoCapture | None:
     """
     Open the directly-connected webcam.
     Tries index 0 to avoid driver hangs on virtual cameras.
@@ -282,10 +277,9 @@ def _scan_for_webcam(max_index: int = 0) -> Optional[cv2.VideoCapture]:
 
     return None
 
-
 # ── Simple depth estimator (no MiDaS ONNX needed) ────────────────────────
 
-def _estimate_depth_from_bbox(bbox: Tuple[int, int, int, int],
+def _estimate_depth_from_bbox(bbox: tuple[int, int, int, int],
                                frame_h: int, frame_w: int) -> float:
     """
     Heuristic depth from bounding-box bottom-edge position and size.
@@ -307,7 +301,6 @@ def _estimate_depth_from_bbox(bbox: Tuple[int, int, int, int],
     dist = 0.6 * area_dist + 0.4 * bottom_dist
     return float(np.clip(dist, 0.2, 10.0))
 
-
 # ── Main class ────────────────────────────────────────────────────────────
 
 class VisionSystem:
@@ -321,7 +314,7 @@ class VisionSystem:
     """
 
     def __init__(self, yolo_path: str = YOLO_MODEL_PATH):
-        self.latest_ble_frame: Optional[np.ndarray] = None
+        self.latest_ble_frame: np.ndarray | None = None
 
         # ── Load YOLOv5n ONNX model ───────────────────────────────────────
         if ort is not None:
@@ -383,7 +376,7 @@ class VisionSystem:
             self._cap = SimulatedCamera(CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
             self._simulated = True
 
-    def capture_frame(self) -> Tuple[Optional[np.ndarray], str]:
+    def capture_frame(self) -> tuple[np.ndarray | None, str]:
         """
         Return (frame, source) where source is 'ble_phone', 'webcam', or 'simulated'.
         BLE phone frame takes priority over local camera.
@@ -501,7 +494,7 @@ class VisionSystem:
 
     # ── Main pipeline ─────────────────────────────────────────────────────
 
-    def process_frame(self, frame: Optional[np.ndarray] = None) -> VisionResult:
+    def process_frame(self, frame: np.ndarray | None = None) -> VisionResult:
         """
         Run the full vision pipeline on one frame.
         If frame is None, capture from BLE phone / USB webcam / simulator.

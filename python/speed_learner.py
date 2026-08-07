@@ -21,7 +21,6 @@ import math
 import os
 import time
 from collections import deque
-from typing import Optional
 
 from config import (
     MIN_SPEED,
@@ -36,7 +35,6 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 class SpeedLearner:
     """
@@ -60,7 +58,7 @@ class SpeedLearner:
         self._accel_history: deque = deque()
 
         # ── Stopped detection ─────────────────────────────────────────────
-        self._stopped_since: Optional[float] = None
+        self._stopped_since: float | None = None
         # Magnitude threshold for "not moving" (m/s², gravity-subtracted)
         self._stopped_mag_threshold = 0.3
 
@@ -71,7 +69,7 @@ class SpeedLearner:
 
     def update(
         self,
-        accel_data: Optional[dict],
+        accel_data: dict | None,
         current_motor_speed: float,
     ):
         """

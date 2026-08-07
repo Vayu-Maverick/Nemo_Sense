@@ -57,7 +57,6 @@ ALL_CLASSES = [
     "toothbrush",
 ]
 
-
 def scan_webcam(max_index: int = 10) -> tuple:
     """Scan for USB webcam across all backends. Returns (cap, index, backend_name)."""
     import platform
@@ -101,7 +100,6 @@ def scan_webcam(max_index: int = 10) -> tuple:
     print("         -> On Windows: check Device Manager -> Imaging Devices.")
     return None, -1, "none"
 
-
 def run_yolo(net, frame: np.ndarray, conf_thresh: float = 0.45):
     """Run YOLOv5n via cv2.dnn and return list of (label, confidence)."""
     blob = cv2.dnn.blobFromImage(
@@ -122,7 +120,6 @@ def run_yolo(net, frame: np.ndarray, conf_thresh: float = 0.45):
                 found.append((label, class_conf, class_id))
     return found
 
-
 def simulated_frame(t: float, w: int = 640, h: int = 480) -> np.ndarray:
     """Generate a synthetic frame for testing."""
     import math
@@ -136,7 +133,6 @@ def simulated_frame(t: float, w: int = 640, h: int = 480) -> np.ndarray:
     cv2.putText(frame, "SIMULATED FRAME", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
     return frame
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -216,7 +212,6 @@ def main():
     print("  2. Plug USB webcam into hub → hub into rover → rerun")
     print("  3. Enable BLE for phone camera:  python rover_simulator.py")
     print()
-
 
 if __name__ == "__main__":
     main()

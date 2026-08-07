@@ -30,7 +30,6 @@ import math
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import List, Tuple
 
 from config import (
     SPEED_TO_PWM_K,
@@ -45,7 +44,6 @@ logger = logging.getLogger("nemosense.dr")
 WHEEL_BASE_M = 0.12     # distance between left and right wheels in metres
                         # Quarky is ~12 cm wide — adjust if yours differs
 MIN_PWM_MOVE = 40       # PWM values below this = wheel not turning (stall)
-
 
 # ── Position snapshot ─────────────────────────────────────────────────────
 
@@ -69,12 +67,10 @@ class Pose:
         """Pretty Cartesian display for terminal."""
         return f"({self.x:+.2f}, {self.y:+.2f}) m"
 
-
 def _heading_arrow(deg: float) -> str:
     arrows = ["↑N", "↗", "→E", "↘", "↓S", "↙", "←W", "↖"]
     idx = int((deg + 22.5) / 45.0) % 8
     return arrows[idx]
-
 
 # ── Dead Reckoner ─────────────────────────────────────────────────────────
 
@@ -94,7 +90,7 @@ class DeadReckoner:
         self._wb   = wheel_base_m
         self._pose = Pose()
         self._last_t = time.monotonic()
-        self._history: List[Tuple[float, float]] = [(0.0, 0.0)]
+        self._history: list[tuple[float, float]] = [(0.0, 0.0)]
         logger.info("Dead reckoning started at origin (0, 0)")
 
     # ── Public API ────────────────────────────────────────────────────────
@@ -151,7 +147,7 @@ class DeadReckoner:
         return self._pose
 
     @property
-    def path(self) -> List[Tuple[float, float]]:
+    def path(self) -> list[tuple[float, float]]:
         """All recorded (x, y) waypoints since last reset."""
         return list(self._history)
 

@@ -24,7 +24,7 @@ import base64
 import json
 import logging
 import threading
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import cv2
@@ -37,7 +37,6 @@ FRAME_CHAR    = "12345678-1234-5678-1234-56789abcdef1"  # Write (camera)
 SENSOR_CHAR   = "12345678-1234-5678-1234-56789abcdef2"  # Write (GPS/IMU)
 COMMAND_CHAR  = "12345678-1234-5678-1234-56789abcdef3"  # Write (commands)
 SPEAK_CHAR    = "12345678-1234-5678-1234-56789abcdef4"  # Notify (TTS)
-
 
 class BLEServer:
     """
@@ -56,7 +55,7 @@ class BLEServer:
         self._on_frame   = on_frame
         self._on_sensor  = on_sensor
         self._on_command = on_command
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._running = False
         self._connected_device = None
         self._speak_queue: asyncio.Queue = asyncio.Queue()

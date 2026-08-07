@@ -19,7 +19,6 @@ Keys:  Q/ESC=quit   P=pause
 from __future__ import annotations
 import argparse, math, time
 from pathlib import Path
-from typing import List, Tuple
 
 import cv2
 import numpy as np
@@ -77,7 +76,6 @@ C_TEAL    = (175, 210,  55)
 C_PURPLE  = (185, 100, 120)
 C_LIME    = (45,  245, 115)
 
-
 # ---------------------------------------------------------------------------
 # Detection
 # ---------------------------------------------------------------------------
@@ -90,7 +88,6 @@ class Det:
         self.label  = COCO_NAMES[cls_id] if cls_id < len(COCO_NAMES) else "object"
         self.zone   = "center"
         self.dist_m = INF
-
 
 # ---------------------------------------------------------------------------
 # YOLOv5n inference
@@ -107,7 +104,7 @@ class YOLOv5:
         else:
             print("[AI] No ONNX model -- detection display uses simulated fallback")
 
-    def infer(self, frame: np.ndarray) -> List[Det]:
+    def infer(self, frame: np.ndarray) -> list[Det]:
         if self._net is None:
             return self._fallback(frame)
         try:
@@ -118,7 +115,7 @@ class YOLOv5:
         except Exception:
             return []
 
-    def _parse(self, raw, shape) -> List[Det]:
+    def _parse(self, raw, shape) -> list[Det]:
         h, w = shape[:2]
         outs = raw[0] if raw.ndim == 3 else raw
         boxes, scores, ids = [], [], []
@@ -141,10 +138,9 @@ class YOLOv5:
             out.append(d)
         return out
 
-    def _fallback(self, frame: np.ndarray) -> List[Det]:
+    def _fallback(self, frame: np.ndarray) -> list[Det]:
         """When no model -- look for motion blobs as stand-in detections."""
         return []
-
 
 # ---------------------------------------------------------------------------
 # AR PATH OVERLAY
@@ -163,7 +159,6 @@ def _bezier(p0, p1, p2, steps=30):
         pts.append((x, y))
     return pts
 
-
 def _path_forward():
     """Straight corridor points: [(left_pts), (right_pts)]"""
     half_bot = int(CAM_W * 0.14)
@@ -173,7 +168,6 @@ def _path_forward():
     left  = [(cx - half_bot, CAM_H), (cx - half_top, hy)]
     right = [(cx + half_bot, CAM_H), (cx + half_top, hy)]
     return left, right
-
 
 def _path_left():
     """Left-curving corridor using Bezier."""
@@ -189,7 +183,6 @@ def _path_left():
     right = _bezier((cx + half_bot, CAM_H), ctrl_r, dest_r)
     return left, right
 
-
 def _path_right():
     """Right-curving corridor."""
     half_bot = int(CAM_W * 0.14)
@@ -202,7 +195,6 @@ def _path_right():
     left  = _bezier((cx - half_bot, CAM_H), ctrl_l, dest_l)
     right = _bezier((cx + half_bot, CAM_H), ctrl_r, dest_r)
     return left, right
-
 
 def draw_nav_path(frame: np.ndarray, action: str, t: float) -> np.ndarray:
     """
@@ -323,11 +315,10 @@ def draw_nav_path(frame: np.ndarray, action: str, t: float) -> np.ndarray:
 
     return frame
 
-
 # ---------------------------------------------------------------------------
 # Detection box overlay
 # ---------------------------------------------------------------------------
-def draw_det_boxes(canvas: np.ndarray, dets: List[Det]):
+def draw_det_boxes(canvas: np.ndarray, dets: list[Det]):
     for d in dets:
         col = C_RED if d.dist_m < EMERGENCY_M else (
               C_YELLOW if d.dist_m < DANGER_M else C_GREEN)
@@ -347,7 +338,6 @@ def draw_det_boxes(canvas: np.ndarray, dets: List[Det]):
         cv2.putText(canvas, lbl, (lx+2,ly-3), FONT, 0.38, (8,8,8), 1, cv2.LINE_AA)
         zone_s = d.zone[0].upper()
         cv2.putText(canvas, zone_s, (d.x1+3,d.y2-4), FONT, 0.35, col, 1, cv2.LINE_AA)
-
 
 # ---------------------------------------------------------------------------
 # Drawing utilities
@@ -394,7 +384,6 @@ def draw_bat(img, x, y, w, h, pct, label, t):
         cv2.rectangle(img,(x+1,y+1),(x+1+fw,y+h-1),col,-1)
     txt(img, label, (x, y-10), 0.28, C_DIM)
     txt(img, f"{int(pct*100)}%", (x+3,y+h-3), 0.28, C_WHITE)
-
 
 # ---------------------------------------------------------------------------
 # Right panel
@@ -510,11 +499,10 @@ def draw_panel(canvas, dets, action, lpwm, rpwm,
     y+=18
     txt(canvas, "Q=quit   P=pause", (px,y+8), 0.26, (38,42,60))
 
-
 # ---------------------------------------------------------------------------
 # Navigation logic
 # ---------------------------------------------------------------------------
-def classify_zones(dets: List[Det], fw: int) -> List[Det]:
+def classify_zones(dets: list[Det], fw: int) -> list[Det]:
     l_end = fw // 3; r_start = 2 * fw // 3
     for d in dets:
         cx = (d.x1+d.x2)//2
@@ -523,7 +511,7 @@ def classify_zones(dets: List[Det], fw: int) -> List[Det]:
         d.zone = "left" if cx<l_end else ("right" if cx>r_start else "center")
     return dets
 
-def decide(dets: List[Det]) -> Tuple[str, int, int]:
+def decide(dets: list[Det]) -> tuple[str, int, int]:
     zm = {"left":INF,"center":INF,"right":INF}
     for d in dets:
         if d.dist_m < zm[d.zone]: zm[d.zone] = d.dist_m
@@ -539,7 +527,6 @@ def decide(dets: List[Det]) -> Tuple[str, int, int]:
 def sim_bats(t0, tn):
     e = tn - t0
     return (max(0., 1.-e/1800), max(0., 1.-e/2100), max(0., 1.-e/3600))
-
 
 # ---------------------------------------------------------------------------
 # Main
@@ -600,7 +587,7 @@ def main():
     # -- State --
     paused = False; fno = 0; fps = 0.; ims = 20.
     t0 = time.monotonic(); tfps = t0; fpsc = 0
-    last_dets: List[Det] = []; last_act = "FORWARD"; ll = lr = 120
+    last_dets: list[Det] = []; last_act = "FORWARD"; ll = lr = 120
     last_frame = np.zeros((CAM_H, CAM_W, 3), np.uint8)
 
     WIN = "NEMO_SENSE -- AI Navigation"

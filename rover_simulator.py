@@ -33,7 +33,6 @@ import queue
 import sys
 import threading
 import time
-from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -97,7 +96,7 @@ FONT       = cv2.FONT_HERSHEY_SIMPLEX
 
 # ── TTS helper ────────────────────────────────────────────────────────────
 _tts_lock = threading.Lock()
-_last_tts: Dict[str, float] = {}
+_last_tts: dict[str, float] = {}
 
 def speak(text: str, cooldown: float = 4.0):
     """Speak text via TTS with per-message cooldown to avoid repetition."""
@@ -116,7 +115,6 @@ def speak(text: str, cooldown: float = 4.0):
             except Exception:
                 pass
     threading.Thread(target=_speak, daemon=True).start()
-
 
 # ── Drawing helpers ───────────────────────────────────────────────────────
 
@@ -161,7 +159,6 @@ def _zone_dist_bar(img, x, y, w, h, dist_m, zone_name):
     txt = "∞" if dist_m == float("inf") else f"{dist_m:.1f}m"
     _text(img, f"{zone_name}: {txt}", (x + 4, y + h - 5), 0.38, C_WHITE)
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # Main simulator class
 # ══════════════════════════════════════════════════════════════════════════
@@ -191,7 +188,7 @@ class RoverSimulator:
         self.left_pwm = 0
         self.right_pwm = 0
         self.vr = VisionResult()
-        self.gps: Optional[Tuple[float, float]] = None
+        self.gps: Optional[tuple[float, float]] = None
         self.heading: float = 0.0
         self.ble_connected = False
         self.ble_status = "BLE: not started"
@@ -214,7 +211,7 @@ class RoverSimulator:
             self.vision = VisionSystem()
 
         # ── BLE server ────────────────────────────────────────────────────
-        self.ble: Optional[BLEServer] = None
+        self.ble: BLEServer | None = None
         if not no_ble and _BLE_AVAILABLE:
             try:
                 self.ble = BLEServer(
@@ -232,9 +229,9 @@ class RoverSimulator:
             self.ble_status = "BLE: unavailable (install bleak)"
 
         # ── WiFi sensing ────────────────────────────────────────────────────
-        self.wifi_engine: Optional[WiFiSensingEngine] = None
-        self.wifi_result: Optional[WiFiSensingResult] = None
-        self.sensor_fusion_engine: Optional[SensorFusion] = None
+        self.wifi_engine: WiFiSensingEngine | None = None
+        self.wifi_result: WiFiSensingResult | None = None
+        self.sensor_fusion_engine: SensorFusion | None = None
         self.fused_result = None
         if _WIFI_AVAILABLE:
             try:
@@ -271,7 +268,7 @@ class RoverSimulator:
 
     # ── Motor computation ─────────────────────────────────────────────────
 
-    def _compute_motors(self, vr: VisionResult) -> Tuple[int, int]:
+    def _compute_motors(self, vr: VisionResult) -> tuple[int, int]:
         """Map VisionResult action to L/R PWM."""
         action = vr.recommended_action
         pwm = speed_to_pwm(self.base_speed)
@@ -539,7 +536,6 @@ class RoverSimulator:
             self.ble.stop()
         logger.info("Simulator stopped.")
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════
@@ -553,7 +549,6 @@ def main():
 
     sim = RoverSimulator(no_ble=args.no_ble, force_sim=args.sim, port=args.port)
     sim.run()
-
 
 if __name__ == "__main__":
     main()

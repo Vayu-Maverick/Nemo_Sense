@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 from config import DEPTH_DANGER_THRESHOLD, DEPTH_EMERGENCY_THRESHOLD
 from vision import VisionResult
@@ -29,14 +28,12 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class MicroNavCommand:
     """Output of one reactive-avoidance cycle."""
     action: str = "none"      # none | steer_left | steer_right | stop
     urgency: float = 0.0      # 0.0 (far) … 1.0 (imminent collision)
     speak_text: str = ""       # text for phone TTS (empty if nothing to say)
-
 
 class MicroNavigator:
     """

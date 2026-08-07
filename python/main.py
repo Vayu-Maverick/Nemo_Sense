@@ -26,7 +26,6 @@ import logging
 import signal
 import threading
 import time
-from typing import Optional, Tuple
 
 from config import (
     COMMAND_INTERVAL_S,
@@ -60,11 +59,9 @@ STATE_ARRIVED    = "arrived"
 
 _shutdown = threading.Event()
 
-
 def _signal_handler(signum, frame):
     logger.info("Shutdown requested (signal %d)", signum)
     _shutdown.set()
-
 
 # ══════════════════════════════════════════════════════════════════════════
 # Orchestrator
@@ -87,13 +84,13 @@ class Orchestrator:
         # Dead reckoning (replaces fake GPS)
         self._sim_gps     = (0.0, 0.0)
         self._sim_heading = 0.0          # 0° = north
-        self.dead_reckoner: Optional[DeadReckoner] = None
+        self.dead_reckoner: DeadReckoner | None = None
 
         # Subsystems (created in init())
-        self.vision:     Optional[VisionSystem]    = None
-        self.navigator:  Optional[Navigator]       = None
-        self.micro_nav:  Optional[MicroNavigator]  = None
-        self.mcu:        Optional[MotorLink]       = None
+        self.vision:     VisionSystem | None    = None
+        self.navigator:  Navigator | None       = None
+        self.micro_nav:  MicroNavigator | None  = None
+        self.mcu:        MotorLink | None       = None
 
     # ── Initialisation ────────────────────────────────────────────────────
 
@@ -253,7 +250,7 @@ class Orchestrator:
         self,
         nav_bias: float,
         micro_cmd: MicroNavCommand,
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Merge macro-nav bias and micro-nav command into final L/R PWM.
         Obstacle avoidance (micro_nav) always takes priority.
@@ -319,7 +316,6 @@ class Orchestrator:
             self.vision.release()
         logger.info("Shutdown complete")
 
-
 # ══════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════
@@ -342,7 +338,6 @@ def main():
     orch = Orchestrator(mode=args.mode)
     orch.init()
     orch.run()
-
 
 if __name__ == "__main__":
     main()

@@ -11,12 +11,10 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 from config import WAYPOINT_REACHED_RADIUS_M, EARTH_RADIUS_M
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class NavigationCommand:
@@ -25,7 +23,6 @@ class NavigationCommand:
     next_instruction: str = ""    # human-readable turn instruction
     distance_to_next: float = 0.0 # metres to the next waypoint
     arrived: bool = False         # True when entire route is done
-
 
 class Navigator:
     """
@@ -42,8 +39,8 @@ class Navigator:
     """
 
     def __init__(self, waypoint_radius: float = WAYPOINT_REACHED_RADIUS_M):
-        self._waypoints: List[Tuple[float, float]] = []   # (lat, lng)
-        self._instructions: List[str] = []
+        self._waypoints: list[tuple[float, float]] = []   # (lat, lng)
+        self._instructions: list[str] = []
         self._current_idx: int = 0
         self._active: bool = False
         self._waypoint_radius = waypoint_radius
@@ -52,8 +49,8 @@ class Navigator:
 
     def set_route(
         self,
-        waypoints: List[List[float]],
-        instructions: Optional[List[str]] = None,
+        waypoints: list[list[float]],
+        instructions: Optional[list[str]] = None,
     ):
         """
         Set a new route.
@@ -128,7 +125,7 @@ class Navigator:
 
     def update(
         self,
-        current_gps: Tuple[float, float],
+        current_gps: tuple[float, float],
         current_heading: float,
     ) -> NavigationCommand:
         """
@@ -203,7 +200,7 @@ class Navigator:
     @staticmethod
     def bias_to_speeds(
         base_speed: float, bias: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Convert a base forward speed and a bias to (left, right) speeds.
 

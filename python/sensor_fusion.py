@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -36,7 +35,6 @@ from wifi_sensing import WiFiSensingResult
 
 logger = logging.getLogger(__name__)
 
-
 # ── Data classes ──────────────────────────────────────────────────────────
 
 @dataclass
@@ -46,26 +44,24 @@ class FusedObstacle:
     confidence: float                           # fused confidence 0–1
     distance_m: float                           # best distance estimate (m)
     zone: str                                   # "left" | "center" | "right"
-    bbox: Optional[Tuple[int, int, int, int]] = None  # pixel bbox if from vision
+    bbox: Optional[tuple[int, int, int, int]] = None  # pixel bbox if from vision
     source: str = "fused"                       # "vision" | "wifi" | "fused"
     depth_confidence: float = 0.0               # 0–1 trust in the distance value
-
 
 @dataclass
 class FusedResult:
     """Aggregated result of one sensor-fusion cycle."""
-    obstacles: List[FusedObstacle] = field(default_factory=list)
+    obstacles: list[FusedObstacle] = field(default_factory=list)
     closest_distance: float = float("inf")
     recommended_action: str = "clear"           # clear | steer_left | steer_right | stop
-    zone_min_dist: Dict[str, float] = field(default_factory=lambda: {
+    zone_min_dist: dict[str, float] = field(default_factory=lambda: {
         "left": float("inf"), "center": float("inf"), "right": float("inf"),
     })
-    surroundings_map: Optional["SurroundingsMap"] = None
+    surroundings_map: "SurroundingsMap" | None = None
     vision_confidence: float = 0.0              # 0–1
     wifi_confidence: float = 0.0                # 0–1
     frame_time_ms: float = 0.0
     source: str = "fused"
-
 
 # ── Surroundings map ─────────────────────────────────────────────────────
 
@@ -86,7 +82,7 @@ class SurroundingsMap:
         self.size = size
         self.cell_size_m = cell_size_m
         self.grid: np.ndarray = np.zeros((size, size), dtype=np.float64)
-        self.rover_cell: Tuple[int, int] = (size - 1, size // 2)
+        self.rover_cell: tuple[int, int] = (size - 1, size // 2)
 
     # ── Vision projection ─────────────────────────────────────────────────
 
@@ -114,10 +110,10 @@ class SurroundingsMap:
 
     # ── Zone summary ──────────────────────────────────────────────────────
 
-    def get_zone_summary(self) -> Dict[str, float]:
+    def get_zone_summary(self) -> dict[str, float]:
         """Return closest occupied distance for left / center / right zones."""
         zone_cols = self._zone_col_ranges()
-        summary: Dict[str, float] = {}
+        summary: dict[str, float] = {}
         for zone, cols in zone_cols.items():
             min_dist = float("inf")
             for r in range(self.size):
@@ -133,9 +129,9 @@ class SurroundingsMap:
     def render_ascii(self) -> str:
         """Text visualisation of the grid for logging / debug."""
         chars = " ░▒▓█"
-        lines: List[str] = []
+        lines: list[str] = []
         for r in range(self.size):
-            row_chars: List[str] = []
+            row_chars: list[str] = []
             for c in range(self.size):
                 if (r, c) == self.rover_cell:
                     row_chars.append("R")
@@ -148,7 +144,7 @@ class SurroundingsMap:
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
-    def _zone_col_ranges(self) -> Dict[str, range]:
+    def _zone_col_ranges(self) -> dict[str, range]:
         n = self.size
         return {
             "left":   range(0, n // 3),
@@ -168,7 +164,6 @@ class SurroundingsMap:
         max_range = self.size * self.cell_size_m
         frac = (self.size - 1 - row) / max(self.size - 1, 1)
         return frac * max_range
-
 
 # ── Sensor fusion engine ─────────────────────────────────────────────────
 
@@ -291,9 +286,9 @@ class SensorFusion:
 
     def _merge_zone_distances(
         self,
-        vision_zones: Dict[str, float],
-        wifi_zones: Dict[str, float],
-    ) -> Dict[str, float]:
+        vision_zones: dict[str, float],
+        wifi_zones: dict[str, float],
+    ) -> dict[str, float]:
         """
         Merge per-zone minimum distances from vision and WiFi.
 
@@ -302,7 +297,7 @@ class SensorFusion:
           - One infinite → use the finite value
           - Both infinite → inf
         """
-        merged: Dict[str, float] = {}
+        merged: dict[str, float] = {}
         for zone in ("left", "center", "right"):
             v = vision_zones.get(zone, float("inf"))
             w = wifi_zones.get(zone, float("inf"))
@@ -321,7 +316,7 @@ class SensorFusion:
     # ── Action determination ──────────────────────────────────────────────
 
     @staticmethod
-    def _determine_action(fused_zones: Dict[str, float]) -> str:
+    def _determine_action(fused_zones: dict[str, float]) -> str:
         """Pick a navigation action based on fused zone distances."""
         left_d = fused_zones.get("left", float("inf"))
         center_d = fused_zones.get("center", float("inf"))
@@ -351,7 +346,7 @@ class SensorFusion:
     def _compute_confidence(
         vision_result: VisionResult,
         wifi_result: WiFiSensingResult,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Evaluate how much we trust each sensor this cycle.
 

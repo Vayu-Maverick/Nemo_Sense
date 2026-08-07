@@ -18,7 +18,6 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from config import (
     WIFI_SENSING_ENABLED,
@@ -32,7 +31,6 @@ from config import (
 )
 
 logger = logging.getLogger(__name__)
-
 
 # ── Inline 1-D Kalman filter ─────────────────────────────────────────────
 
@@ -60,7 +58,6 @@ class SimpleKalman:
         self.p *= (1 - k)
         return self.x
 
-
 # ── Data classes ──────────────────────────────────────────────────────────
 
 @dataclass
@@ -71,8 +68,7 @@ class WiFiNode:
     mac_address: str
     last_rssi: float = 0.0                  # dBm
     last_update_time: float = 0.0           # epoch seconds
-    position_estimate: Tuple[float, float] = (0.0, 0.0)  # (x, y) in cm relative to rover
-
+    position_estimate: tuple[float, float] = (0.0, 0.0)  # (x, y) in cm relative to rover
 
 @dataclass
 class WiFiMeasurement:
@@ -82,24 +78,22 @@ class WiFiMeasurement:
     rssi_dbm: float
     frequency_mhz: int = 2412              # default to 2.4 GHz ch 1
     timestamp: float = 0.0
-    csi_amplitudes: Optional[List[float]] = None
-
+    csi_amplitudes: Optional[list[float]] = None
 
 @dataclass
 class WiFiSensingResult:
     """Output of one WiFi sensing cycle."""
-    zone_presence: Dict[str, float] = field(default_factory=lambda: {
+    zone_presence: dict[str, float] = field(default_factory=lambda: {
         "left": 0.0, "center": 0.0, "right": 0.0,
     })
-    zone_distance: Dict[str, float] = field(default_factory=lambda: {
+    zone_distance: dict[str, float] = field(default_factory=lambda: {
         "left": float("inf"), "center": float("inf"), "right": float("inf"),
     })
     signal_quality: float = 0.0             # 0–1 overall measurement quality
     obstacle_detected: bool = False
-    surroundings_rssi_map: List[List[float]] = field(default_factory=list)
-    node_distances: Dict[str, float] = field(default_factory=dict)
-    raw_measurements: List[WiFiMeasurement] = field(default_factory=list)
-
+    surroundings_rssi_map: list[list[float]] = field(default_factory=list)
+    node_distances: dict[str, float] = field(default_factory=dict)
+    raw_measurements: list[WiFiMeasurement] = field(default_factory=list)
 
 # ── Main engine ───────────────────────────────────────────────────────────
 
@@ -114,10 +108,10 @@ class WiFiSensingEngine:
     """
 
     def __init__(self) -> None:
-        self._nodes: Dict[str, WiFiNode] = {}
-        self._kalman_filters: Dict[str, SimpleKalman] = {}
-        self._baseline_rssi: Dict[str, float] = {}       # pair_key → dBm
-        self._measurements: List[WiFiMeasurement] = []
+        self._nodes: dict[str, WiFiNode] = {}
+        self._kalman_filters: dict[str, SimpleKalman] = {}
+        self._baseline_rssi: dict[str, float] = {}       # pair_key → dBm
+        self._measurements: list[WiFiMeasurement] = []
         self._calibrated = False
         logger.info("WiFiSensingEngine initialised (enabled=%s)", WIFI_SENSING_ENABLED)
 
@@ -169,7 +163,7 @@ class WiFiSensingEngine:
         logger.info("Calibrating WiFi baseline for %.1f s …", duration_s)
 
         # Group recent measurements by pair
-        pair_readings: Dict[str, List[float]] = {}
+        pair_readings: dict[str, list[float]] = {}
         now = time.time()
         for m in self._measurements:
             if now - m.timestamp <= duration_s:
@@ -206,7 +200,7 @@ class WiFiSensingEngine:
             self._calibrated = True
 
         # Collect latest measurement per pair
-        latest: Dict[str, WiFiMeasurement] = {}
+        latest: dict[str, WiFiMeasurement] = {}
         for m in self._measurements:
             key = self._pair_key(m.source_node_id, m.target_node_id)
             if key not in latest or m.timestamp > latest[key].timestamp:
@@ -218,7 +212,7 @@ class WiFiSensingEngine:
         result.raw_measurements = list(latest.values())
 
         # ── Per-pair distance estimation ──────────────────────────────────
-        obstacle_flags: List[bool] = []
+        obstacle_flags: list[bool] = []
         for key, m in latest.items():
             baseline = self._baseline_rssi.get(key, WIFI_RSSI_REFERENCE)
             raw_dist = self._rssi_to_distance(
@@ -290,8 +284,8 @@ class WiFiSensingEngine:
 
     def _triangulate_zones(
         self,
-        measurements: Dict[str, WiFiMeasurement],
-    ) -> Dict[str, dict]:
+        measurements: dict[str, WiFiMeasurement],
+    ) -> dict[str, dict]:
         """
         Map multi-node RSSI measurements to left / center / right zones.
 
@@ -301,8 +295,8 @@ class WiFiSensingEngine:
           - rover↔phone link:   predominantly *right* zone
         Obstacle presence per zone scales with shadow-fade magnitude.
         """
-        zone_presence: Dict[str, float] = {"left": 0.0, "center": 0.0, "right": 0.0}
-        zone_distance: Dict[str, float] = {
+        zone_presence: dict[str, float] = {"left": 0.0, "center": 0.0, "right": 0.0}
+        zone_distance: dict[str, float] = {
             "left": float("inf"), "center": float("inf"), "right": float("inf"),
         }
 
@@ -340,7 +334,7 @@ class WiFiSensingEngine:
 
     # ── Occupancy grid ────────────────────────────────────────────────────
 
-    def _build_occupancy_grid(self) -> List[List[float]]:
+    def _build_occupancy_grid(self) -> list[list[float]]:
         """
         Build an N×N occupancy grid from all current measurements.
 
@@ -350,10 +344,10 @@ class WiFiSensingEngine:
         Each cell is a probability 0.0 (free) … 1.0 (occupied).
         """
         n = WIFI_OCCUPANCY_GRID_SIZE
-        grid: List[List[float]] = [[0.0] * n for _ in range(n)]
+        grid: list[list[float]] = [[0.0] * n for _ in range(n)]
 
         # Collect latest per-pair shadow-fade magnitudes
-        latest: Dict[str, WiFiMeasurement] = {}
+        latest: dict[str, WiFiMeasurement] = {}
         for m in self._measurements:
             key = self._pair_key(m.source_node_id, m.target_node_id)
             if key not in latest or m.timestamp > latest[key].timestamp:
@@ -388,10 +382,10 @@ class WiFiSensingEngine:
 
     # ── Node status ───────────────────────────────────────────────────────
 
-    def get_node_status(self) -> Dict[str, dict]:
+    def get_node_status(self) -> dict[str, dict]:
         """Return status of all registered nodes (for dashboard / logging)."""
         now = time.time()
-        status: Dict[str, dict] = {}
+        status: dict[str, dict] = {}
         for nid, node in self._nodes.items():
             age = now - node.last_update_time if node.last_update_time > 0 else -1.0
             status[nid] = {
@@ -411,16 +405,16 @@ class WiFiSensingEngine:
         """Canonical key for a node pair (order-independent)."""
         return f"{min(a, b)}↔{max(a, b)}"
 
-    def _all_pair_keys(self) -> List[str]:
+    def _all_pair_keys(self) -> list[str]:
         """Return pair keys for every unique combination of registered nodes."""
         ids = sorted(self._nodes.keys())
-        keys: List[str] = []
+        keys: list[str] = []
         for i in range(len(ids)):
             for j in range(i + 1, len(ids)):
                 keys.append(self._pair_key(ids[i], ids[j]))
         return keys
 
-    def _get_pair_zone_map(self) -> Dict[str, str]:
+    def _get_pair_zone_map(self) -> dict[str, str]:
         """
         Map each node-pair key to the zone it most influences.
 
@@ -430,7 +424,7 @@ class WiFiSensingEngine:
           phone↔rover   → right   (cross-link)
         Falls back to 'center' for unknown pairs.
         """
-        zone_map: Dict[str, str] = {}
+        zone_map: dict[str, str] = {}
         rover_ids  = [n.node_id for n in self._nodes.values() if n.node_type == "rover"]
         phone_ids  = [n.node_id for n in self._nodes.values() if n.node_type == "phone"]
         router_ids = [n.node_id for n in self._nodes.values() if n.node_type == "router"]
@@ -449,7 +443,7 @@ class WiFiSensingEngine:
 
     def _compute_signal_quality(
         self,
-        latest: Dict[str, WiFiMeasurement],
+        latest: dict[str, WiFiMeasurement],
     ) -> float:
         """
         Compute an overall signal quality score 0–1.
@@ -459,7 +453,7 @@ class WiFiSensingEngine:
         if not latest:
             return 0.0
         now = time.time()
-        scores: List[float] = []
+        scores: list[float] = []
         for m in latest.values():
             age = now - m.timestamp
             recency = max(0.0, 1.0 - age / 5.0)          # 0 if >5 s old

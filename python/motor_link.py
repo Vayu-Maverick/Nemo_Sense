@@ -25,7 +25,6 @@ import logging
 import socket
 import struct
 import time
-from typing import Optional
 
 logger = logging.getLogger("netra.motor")
 
@@ -40,7 +39,6 @@ CMD_RIGHT   = 4
 ROUTER_SOCK = "/var/run/arduino-router.sock"
 CALL_TIMEOUT = 1.0   # seconds to wait for RPC response
 
-
 class MotorLink:
     """
     Sends drive commands to the L9110S motor driver via arduino-router RPC.
@@ -53,7 +51,7 @@ class MotorLink:
 
     def __init__(self, sock_path: str = ROUTER_SOCK):
         self._sock_path = sock_path
-        self._sock: Optional[socket.socket] = None
+        self._sock: socket.socket | None = None
         self._last_cmd = CMD_STOP
         self._connected = False
 
@@ -179,7 +177,6 @@ class MotorLink:
 
         raise TimeoutError(f"No RPC response for '{method}' within {CALL_TIMEOUT}s")
 
-
 # ── Minimal MsgPack encoder/decoder ──────────────────────────────────────────
 # Handles only what arduino-router needs: arrays of str/int
 
@@ -219,12 +216,10 @@ def _msgpack_encode(obj) -> bytes:
     else:
         raise TypeError(f"Cannot MsgPack-encode type {type(obj)}")
 
-
 def _msgpack_decode(data: bytes):
     """Decode MsgPack bytes to a Python object (arrays and scalars only)."""
     val, _ = _decode_one(data, 0)
     return val
-
 
 def _decode_one(data: bytes, pos: int):
     b = data[pos]
@@ -270,7 +265,6 @@ def _decode_one(data: bytes, pos: int):
         n = struct.unpack_from(">H", data, pos)[0]; pos += 2
         return _decode_array(data, pos, n)
     raise ValueError(f"Unsupported MsgPack byte 0x{b:02x} at pos {pos-1}")
-
 
 def _decode_array(data: bytes, pos: int, n: int):
     result = []

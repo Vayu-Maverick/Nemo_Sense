@@ -1,3 +1,4 @@
+from __future__ import annotations
 import cv2
 import serial
 import json
@@ -181,7 +182,6 @@ class VisionSystem:
                 })
         return obstacles
 
-
 # ===========================================================================
 # WiFi Sensing System (standalone — no dependency on wifi_sensing.py)
 # ===========================================================================
@@ -364,7 +364,6 @@ class WiFiSensingSystem:
         if rssi >= self.REF_RSSI:
             return 0.5
         return 10.0 ** ((self.REF_RSSI - rssi) / (10.0 * self.PATH_LOSS_EXP))
-
 
 class SurroundingsMapDisplay:
     """Print an ASCII occupancy grid to the console."""

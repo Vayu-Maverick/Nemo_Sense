@@ -24,6 +24,7 @@ Dependencies (already on most Linux systems):
     (no display needed -- headless is smaller and faster)
 """
 
+from __future__ import annotations
 import argparse
 import logging
 import socket
@@ -65,9 +66,7 @@ class FrameBuffer:
         with self._lock:
             return self._count
 
-
 _buf = FrameBuffer()
-
 
 # ---- Capture thread ---------------------------------------------------------
 
@@ -144,7 +143,6 @@ def capture_loop(camera_idx: int, width: int, height: int,
     if cap:
         cap.release()
     log.info("Capture thread stopped.")
-
 
 # ---- HTTP handler -----------------------------------------------------------
 
@@ -241,7 +239,6 @@ class MJPEGHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-
 # ---- Helpers ----------------------------------------------------------------
 
 def get_local_ip() -> str:
@@ -254,7 +251,6 @@ def get_local_ip() -> str:
         return ip
     except Exception:
         return "127.0.0.1"
-
 
 # ---- Entry point ------------------------------------------------------------
 
@@ -318,7 +314,6 @@ def main():
         stop_event.set()
         server.shutdown()
         log.info("Done.")
-
 
 if __name__ == "__main__":
     main()

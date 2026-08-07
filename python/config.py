@@ -8,6 +8,7 @@ All tuneable constants collected here. Designed for:
   - Quarky chassis receiving GPIO signals on pins 1/2/3
 """
 
+from __future__ import annotations
 import os
 
 # ---------------------------------------------------------------------------
@@ -130,7 +131,6 @@ WIFI_ROUTER_SSID             = ""
 # Sensor fusion weights (kept for future use)
 FUSION_VISION_WEIGHT = 1.0
 FUSION_WIFI_WEIGHT   = 0.0
-
 
 def speed_to_pwm(speed_ms: float) -> int:
     """Convert a speed in m/s to a PWM value [0, 255]."""

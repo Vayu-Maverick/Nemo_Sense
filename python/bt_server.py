@@ -24,7 +24,6 @@ import queue
 import sys
 import threading
 import time
-from typing import Any, Dict, Optional
 
 import cv2
 import numpy as np
@@ -36,23 +35,22 @@ logger = logging.getLogger("netra.bt")
 # RFCOMM channel used when the UUID bind is unavailable (Linux fallback).
 BT_RFCOMM_PORT = 1
 
-
 class BluetoothServer:
     """Thread-safe Bluetooth SPP server."""
 
     def __init__(self):
         self._command_queue: queue.Queue = queue.Queue(maxsize=64)
         self._frame_lock = threading.Lock()
-        self.latest_frame: Optional[np.ndarray] = None
+        self.latest_frame: np.ndarray | None = None
         self._sensor_lock = threading.Lock()
-        self._latest_sensor: Optional[Dict[str, Any]] = None
+        self._latest_sensor: Optional[dict[str, Any]] = None
         self._wifi_lock = threading.Lock()
         self._latest_wifi_data: list = []
 
         self._client_sock = None
         self._server_sock = None
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._connected = threading.Event()
         self._stub_mode = sys.platform == "win32"
 
@@ -85,7 +83,7 @@ class BluetoothServer:
     def get_command_queue(self) -> queue.Queue:
         return self._command_queue
 
-    def get_latest_sensor_data(self) -> Optional[Dict[str, Any]]:
+    def get_latest_sensor_data(self) -> Optional[dict[str, Any]]:
         with self._sensor_lock:
             return dict(self._latest_sensor) if self._latest_sensor else None
 
@@ -109,9 +107,9 @@ class BluetoothServer:
         state: str,
         obstacles: list,
         speed: float,
-        next_turn: Optional[dict] = None,
+        next_turn: dict | None = None,
     ):
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "type": "status",
             "state": state,
             "obstacles": obstacles,

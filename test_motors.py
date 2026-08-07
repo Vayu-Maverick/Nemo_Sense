@@ -6,6 +6,7 @@ The arduino-router exposes the STM32 RPC functions over a Unix socket at:
 
 We call the 'motor' RPC function directly using msgpack.
 """
+from __future__ import annotations
 import socket
 import struct
 import time
