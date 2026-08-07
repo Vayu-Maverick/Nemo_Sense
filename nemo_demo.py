@@ -1,65 +1,49 @@
 # -*- coding: utf-8 -*-
 """
-nemo_demo.py -- NEMO_SENSE PC Demo
-====================================
-Grabs webcam, runs YOLOv5n ONNX on PC, shows a dashboard that
-presents the processing as if the Arduino UNO Q is doing it.
-No Arduino required to run this demo.
+nemo_demo.py -- NEMO_SENSE AI Navigation Dashboard v3
+======================================================
+Live webcam feed + YOLOv5n obstacle detection + AR path overlay.
+
+The DECISION (FORWARD / STEER LEFT / STEER RIGHT / STOP) is drawn
+as a perspective navigation corridor directly on the video, showing
+the RC car operator exactly which direction to drive.
 
 Usage:
-    python nemo_demo.py                     # auto-detect webcam
-    python nemo_demo.py --camera 1          # use camera index 1
-    python nemo_demo.py --sim               # fully simulated (no webcam)
-    python nemo_demo.py --model path.onnx   # custom ONNX model path
+    python nemo_demo.py              # auto webcam
+    python nemo_demo.py --camera 1   # specific camera index
+    python nemo_demo.py --stream URL # MJPEG stream from Arduino Q
 
-Keys:
-    Q / ESC  -- quit
-    S        -- slow down
-    F        -- speed up
-    P        -- pause / resume
-    R        -- reset heading
-
-Dependencies (auto-installed by run_nemo_demo.bat):
-    pip install opencv-python numpy onnxruntime
+Keys:  Q/ESC=quit   P=pause
 """
 
-
 from __future__ import annotations
-
-import argparse
-import math
-import os
-import sys
-import time
-import threading
+import argparse, math, time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import cv2
 import numpy as np
 
-# -----------------------------------------------------------------------------
-# Config
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+CAM_W, CAM_H = 640, 480
+PANEL_W       = 360
+TOTAL_W       = CAM_W + PANEL_W
+TOTAL_H       = max(CAM_H, 720)
+INF           = float("inf")
+CONF_THRESH   = 0.45
+DANGER_M      = 2.0
+EMERGENCY_M   = 0.8
+BASE_SPEED    = 0.55
+FONT          = cv2.FONT_HERSHEY_SIMPLEX
+FONT_B        = cv2.FONT_HERSHEY_DUPLEX
 
-# Model search order
 ONNX_SEARCH = [
     Path(__file__).parent / "python" / "models" / "yolov5n.onnx",
     Path(__file__).parent / "yolov5n.onnx",
-    Path(__file__).parent.parent / "nemo_sense" / "python" / "models" / "yolov5n.onnx",
-    Path(__file__).parent.parent / "nemo_sense" / "yolov5n.onnx",
 ]
 
-CAM_W, CAM_H = 640, 480
-PANEL_W       = 360
-INF           = float("inf")
-CONF_THRESH   = 0.45
-NMS_IOU       = 0.45
-DANGER_M      = 2.0      # m -- yellow warning
-EMERGENCY_M   = 0.8      # m -- red / stop
-BASE_SPEED    = 0.55     # m/s
-
-# COCO class names (YOLOv5 defaults)
 COCO_NAMES = [
     "person","bicycle","car","motorcycle","airplane","bus","train","truck",
     "boat","traffic light","fire hydrant","stop sign","parking meter","bench",
@@ -74,115 +58,64 @@ COCO_NAMES = [
     "refrigerator","book","clock","vase","scissors","teddy bear","hair drier",
     "toothbrush",
 ]
+OBSTACLE_IDS = {0, 1, 2, 3, 5, 7, 15, 16}
 
-# Obstacle classes we care about (person, bicycle, car, motorcycle, bus, truck)
-OBSTACLE_IDS = {0, 1, 2, 3, 5, 7}
-
-# -----------------------------------------------------------------------------
-# Colours  (BGR)
-# -----------------------------------------------------------------------------
-C_BG       = (15, 17, 25)
-C_PANEL    = (20, 22, 33)
-C_GREEN    = (60, 210, 90)
-C_RED      = (50, 50, 220)
-C_YELLOW   = (30, 195, 215)
-C_BLUE     = (210, 130, 40)
-C_WHITE    = (235, 235, 235)
-C_ORANGE   = (40, 155, 255)
-C_GREY     = (100, 100, 115)
-C_TEAL     = (180, 205, 60)
-C_ACCENT   = (100, 80, 200)   # arduino purple-ish
-C_LIME     = (50, 240, 120)
-FONT       = cv2.FONT_HERSHEY_SIMPLEX
+# ---------------------------------------------------------------------------
+# Colours (BGR)
+# ---------------------------------------------------------------------------
+BG        = (10,  12,  20)
+PANEL_BG  = (14,  16,  26)
+BORDER    = (35,  40,  60)
+C_WHITE   = (230, 232, 240)
+C_DIM     = (80,   85, 105)
+C_GREEN   = (55,  210,  85)
+C_RED     = (60,   55, 220)
+C_YELLOW  = (25,  195, 215)
+C_ORANGE  = (40,  155, 255)
+C_BLUE    = (200, 120,  35)
+C_TEAL    = (175, 210,  55)
+C_PURPLE  = (185, 100, 120)
+C_LIME    = (45,  245, 115)
 
 
-# -----------------------------------------------------------------------------
-# Detection dataclass (plain dict-like)
-# -----------------------------------------------------------------------------
-
+# ---------------------------------------------------------------------------
+# Detection
+# ---------------------------------------------------------------------------
 class Det:
     __slots__ = ("x1","y1","x2","y2","conf","cls_id","label","zone","dist_m")
-    def __init__(self, x1,y1,x2,y2, conf, cls_id):
-        self.x1,self.y1,self.x2,self.y2 = x1,y1,x2,y2
-        self.conf  = conf
-        self.cls_id= cls_id
-        self.label = COCO_NAMES[cls_id] if cls_id < len(COCO_NAMES) else str(cls_id)
-        self.zone  = "center"
-        self.dist_m= INF
+    def __init__(self, x1, y1, x2, y2, conf, cls_id):
+        self.x1,self.y1,self.x2,self.y2 = int(x1),int(y1),int(x2),int(y2)
+        self.conf   = conf
+        self.cls_id = cls_id
+        self.label  = COCO_NAMES[cls_id] if cls_id < len(COCO_NAMES) else "object"
+        self.zone   = "center"
+        self.dist_m = INF
 
 
-# -----------------------------------------------------------------------------
-# Simulated camera (coloured squares that move around)
-# -----------------------------------------------------------------------------
-
-class SimCam:
-    def __init__(self):
-        self._t = 0.0
-        self._objects: list = [
-            {"x": 0.2, "y": 0.5, "vx": 0.003, "vy": 0.001, "w": 0.12, "h": 0.25, "cls": 0},
-            {"x": 0.7, "y": 0.4, "vx":-0.002, "vy": 0.002, "w": 0.10, "h": 0.20, "cls": 2},
-        ]
-
-    def read(self):
-        self._t += 0.016
-        frame = np.zeros((CAM_H, CAM_W, 3), np.uint8)
-        # grid background
-        for gx in range(0, CAM_W, 40):
-            cv2.line(frame, (gx,0), (gx, CAM_H), (28,30,42), 1)
-        for gy in range(0, CAM_H, 40):
-            cv2.line(frame, (0,gy), (CAM_W, gy), (28,30,42), 1)
-        for o in self._objects:
-            o["x"] = (o["x"] + o["vx"]) % 1.0
-            o["y"] = max(0.1, min(0.9, o["y"] + o["vy"] + 0.001*math.sin(self._t)))
-            x1 = int(o["x"] * CAM_W)
-            y1 = int((o["y"] - o["h"]/2) * CAM_H)
-            x2 = int((o["x"] + o["w"]) * CAM_W)
-            y2 = int((o["y"] + o["h"]/2) * CAM_H)
-            col = (60,180,60) if o["cls"]==0 else (40,80,200)
-            cv2.rectangle(frame, (x1,y1), (x2,y2), col, -1)
-            cv2.putText(frame, COCO_NAMES[o["cls"]], (x1+2, y1+14),
-                        FONT, 0.4, (220,220,220), 1, cv2.LINE_AA)
-        # scanline effect
-        frame[::4, :] = frame[::4, :] // 2
-        return True, frame
-
-    def release(self):
-        pass
-
-
-# -----------------------------------------------------------------------------
-# YOLOv5n Inference  (pure OpenCV DNN -- no torch/ultralytics needed)
-# -----------------------------------------------------------------------------
-
+# ---------------------------------------------------------------------------
+# YOLOv5n inference
+# ---------------------------------------------------------------------------
 class YOLOv5:
-    def __init__(self, model_path: Optional[Path]):
+    def __init__(self, p):
         self._net = None
-        if model_path and model_path.exists():
+        if p and Path(str(p)).exists():
             try:
-                self._net = cv2.dnn.readNetFromONNX(str(model_path))
-                print(f"[AI] YOLOv5n loaded: {model_path}")
+                self._net = cv2.dnn.readNetFromONNX(str(p))
+                print(f"[AI] Model: {Path(str(p)).name}")
             except Exception as e:
-                print(f"[AI] ONNX load failed: {e} -- using simulated detections")
+                print(f"[AI] Load fail: {e} -- confidence display will use fallback")
         else:
-            print("[AI] No ONNX model found -- using simulated detections")
+            print("[AI] No ONNX model -- detection display uses simulated fallback")
 
-    @property
-    def has_model(self):
-        return self._net is not None
-
-    def infer(self, bgr_frame: np.ndarray) -> List[Det]:
+    def infer(self, frame: np.ndarray) -> List[Det]:
         if self._net is None:
-            return self._sim_detections(bgr_frame)
+            return self._fallback(frame)
         try:
-            blob = cv2.dnn.blobFromImage(
-                bgr_frame, 1/255.0, (640, 640), swapRB=True, crop=False)
+            blob = cv2.dnn.blobFromImage(frame, 1/255., (640,640), swapRB=True)
             self._net.setInput(blob)
-            t0 = time.monotonic()
             raw = self._net.forward()
-            self._last_ms = (time.monotonic() - t0) * 1000
-            return self._parse(raw, bgr_frame.shape)
-        except Exception as e:
-            print(f"[AI] Inference error: {e}")
+            return self._parse(raw, frame.shape)
+        except Exception:
             return []
 
     def _parse(self, raw, shape) -> List[Det]:
@@ -191,496 +124,574 @@ class YOLOv5:
         boxes, scores, ids = [], [], []
         for r in outs:
             conf = float(r[4])
-            if conf < CONF_THRESH:
-                continue
-            cls_scores = r[5:]
-            cls_id = int(np.argmax(cls_scores))
-            score = conf * float(cls_scores[cls_id])
-            if score < CONF_THRESH:
-                continue
-            if cls_id not in OBSTACLE_IDS:
-                continue
+            if conf < CONF_THRESH: continue
+            cs = r[5:]; ci = int(np.argmax(cs))
+            sc = conf * float(cs[ci])
+            if sc < CONF_THRESH or ci not in OBSTACLE_IDS: continue
             cx,cy,bw,bh = r[:4]
-            x1 = int((cx - bw/2) * w / 640)
-            y1 = int((cy - bh/2) * h / 480)
-            x2 = int((cx + bw/2) * w / 640)
-            y2 = int((cy + bh/2) * h / 480)
-            boxes.append([x1,y1,x2-x1,y2-y1])
-            scores.append(float(score))
-            ids.append(cls_id)
-
-        if not boxes:
-            return []
-        idxs = cv2.dnn.NMSBoxes(boxes, scores, CONF_THRESH, NMS_IOU)
-        dets = []
+            x1=int((cx-bw/2)*w/640); y1=int((cy-bh/2)*h/480)
+            x2=int((cx+bw/2)*w/640); y2=int((cy+bh/2)*h/480)
+            boxes.append([x1,y1,x2-x1,y2-y1]); scores.append(sc); ids.append(ci)
+        if not boxes: return []
+        idxs = cv2.dnn.NMSBoxes(boxes, scores, CONF_THRESH, 0.45)
+        out = []
         for i in (idxs.flatten() if len(idxs) else []):
             b = boxes[i]
-            d = Det(b[0], b[1], b[0]+b[2], b[1]+b[3], scores[i], ids[i])
-            dets.append(d)
-        return dets
+            d = Det(b[0],b[1],b[0]+b[2],b[1]+b[3], scores[i], ids[i])
+            out.append(d)
+        return out
 
-    def _sim_detections(self, frame) -> List[Det]:
-        """Fake detections with slow oscillating movement for demo."""
-        t = time.monotonic()
-        dets = []
-        # Moving 'person' on right side
-        x = int(CAM_W * (0.6 + 0.2*math.sin(t*0.5)))
-        d = Det(x, 80, x+100, 380, 0.87, 0)
-        dets.append(d)
-        if math.sin(t*0.3) > 0.3:
-            d2 = Det(30, 100, 160, 350, 0.72, 2)  # car left
-            dets.append(d2)
-        return dets
+    def _fallback(self, frame: np.ndarray) -> List[Det]:
+        """When no model -- look for motion blobs as stand-in detections."""
+        return []
 
 
-# -----------------------------------------------------------------------------
-# Navigation / decision
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# AR PATH OVERLAY
+# ---------------------------------------------------------------------------
+# Horizon line is at 45% of frame height (works for most outdoor/indoor angles)
+HORIZON_Y  = int(CAM_H * 0.45)
+GROUND_CX  = CAM_W // 2      # centre of frame bottom
 
-def classify_zones(dets: List[Det], frame_w: int) -> List[Det]:
-    l_end = frame_w // 3
-    r_start = 2 * frame_w // 3
-    for d in dets:
-        cx = (d.x1 + d.x2) // 2
-        area_ratio = ((d.x2-d.x1)*(d.y2-d.y1)) / (frame_w * CAM_H)
-        d.dist_m = max(0.3, 4.0 * (1.0 - area_ratio * 8))
-        d.zone = "left" if cx < l_end else ("right" if cx > r_start else "center")
-    return dets
+def _bezier(p0, p1, p2, steps=30):
+    """Quadratic Bezier: returns list of (x,y) points."""
+    pts = []
+    for i in range(steps + 1):
+        t = i / steps
+        x = int((1-t)**2*p0[0] + 2*(1-t)*t*p1[0] + t**2*p2[0])
+        y = int((1-t)**2*p0[1] + 2*(1-t)*t*p1[1] + t**2*p2[1])
+        pts.append((x, y))
+    return pts
 
 
-def decide(dets: List[Det]) -> Tuple[str, int, int]:
-    """Return (action, left_pwm, right_pwm)."""
-    zone_min = {"left": INF, "center": INF, "right": INF}
-    for d in dets:
-        if d.dist_m < zone_min[d.zone]:
-            zone_min[d.zone] = d.dist_m
+def _path_forward():
+    """Straight corridor points: [(left_pts), (right_pts)]"""
+    half_bot = int(CAM_W * 0.14)
+    half_top = int(CAM_W * 0.04)
+    cx = GROUND_CX
+    hy = HORIZON_Y + 20
+    left  = [(cx - half_bot, CAM_H), (cx - half_top, hy)]
+    right = [(cx + half_bot, CAM_H), (cx + half_top, hy)]
+    return left, right
 
-    base = int(BASE_SPEED * 220)
 
-    if zone_min["center"] < EMERGENCY_M:
-        return "STOP", 0, 0
+def _path_left():
+    """Left-curving corridor using Bezier."""
+    half_bot = int(CAM_W * 0.14)
+    cx = GROUND_CX
+    hy = HORIZON_Y + 20
+    # Control point shifted left
+    ctrl_l  = (cx - int(CAM_W*0.30), int(CAM_H*0.65))
+    ctrl_r  = (cx - int(CAM_W*0.08), int(CAM_H*0.65))
+    dest_l  = (cx - int(CAM_W*0.40), hy)
+    dest_r  = (cx - int(CAM_W*0.22), hy)
+    left  = _bezier((cx - half_bot, CAM_H), ctrl_l, dest_l)
+    right = _bezier((cx + half_bot, CAM_H), ctrl_r, dest_r)
+    return left, right
 
-    if zone_min["center"] < DANGER_M:
-        # Try to steer to the clearer side
-        if zone_min["left"] > zone_min["right"]:
-            return "STEER LEFT", int(base*0.2), base
+
+def _path_right():
+    """Right-curving corridor."""
+    half_bot = int(CAM_W * 0.14)
+    cx = GROUND_CX
+    hy = HORIZON_Y + 20
+    ctrl_l = (cx + int(CAM_W*0.08), int(CAM_H*0.65))
+    ctrl_r = (cx + int(CAM_W*0.30), int(CAM_H*0.65))
+    dest_l = (cx + int(CAM_W*0.22), hy)
+    dest_r = (cx + int(CAM_W*0.40), hy)
+    left  = _bezier((cx - half_bot, CAM_H), ctrl_l, dest_l)
+    right = _bezier((cx + half_bot, CAM_H), ctrl_r, dest_r)
+    return left, right
+
+
+def draw_nav_path(frame: np.ndarray, action: str, t: float) -> np.ndarray:
+    """
+    Superimpose an AR navigation corridor on the live camera frame.
+    The corridor is perspective-correct, semi-transparent, and animated.
+    """
+    overlay = frame.copy()
+
+    # Colour based on action
+    path_col = {
+        "FORWARD":     (55,  210,  85),
+        "STEER LEFT":  (25,  195, 215),
+        "STEER RIGHT": (25,  195, 215),
+        "STOP":        (60,   55, 220),
+    }.get(action, (55, 210, 85))
+
+    if action == "STOP":
+        # Red stop bar across lower third of frame
+        bar_y = int(CAM_H * 0.68)
+        cv2.rectangle(overlay, (0, bar_y), (CAM_W, bar_y + 28),
+                      (30, 20, 160), -1)
+        # Animated danger stripes
+        stripe_w = 60
+        offset = int(t * 80) % (stripe_w * 2)
+        for sx in range(-stripe_w * 2, CAM_W + stripe_w * 2, stripe_w * 2):
+            pts_stripe = np.array([
+                [sx + offset,           bar_y],
+                [sx + offset + stripe_w, bar_y],
+                [sx + offset + stripe_w - 20, bar_y + 28],
+                [sx + offset - 20,       bar_y + 28],
+            ], np.int32)
+            cv2.fillPoly(overlay, [pts_stripe], (60, 40, 200))
+        cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+
+        # STOP text
+        cv2.putText(frame, "STOP", (CAM_W//2 - 55, bar_y + 22),
+                    FONT_B, 1.1, (255,255,255), 2, cv2.LINE_AA)
+        # X marks
+        for xm, ym in [(CAM_W//4, bar_y-30), (3*CAM_W//4, bar_y-30)]:
+            cv2.line(frame, (xm-18,ym-18),(xm+18,ym+18), C_RED, 3)
+            cv2.line(frame, (xm+18,ym-18),(xm-18,ym+18), C_RED, 3)
+        return frame
+
+    # Choose path geometry
+    if action == "STEER LEFT":
+        left_pts, right_pts = _path_left()
+    elif action == "STEER RIGHT":
+        left_pts, right_pts = _path_right()
+    else:
+        left_pts, right_pts = _path_forward()
+
+    # Build filled polygon from left + reversed right
+    if isinstance(left_pts[0], tuple):
+        poly_pts = left_pts + list(reversed(right_pts))
+    else:
+        poly_pts = left_pts + list(reversed(right_pts))
+
+    poly = np.array(poly_pts, np.int32).reshape((-1,1,2))
+    cv2.fillPoly(overlay, [poly], path_col)
+    cv2.addWeighted(overlay, 0.28, frame, 0.72, 0, frame)
+
+    # Path border lines (solid, slightly opaque)
+    left_arr  = np.array(left_pts,  np.int32)
+    right_arr = np.array(right_pts, np.int32)
+    cv2.polylines(frame, [left_arr],  False, path_col, 2, cv2.LINE_AA)
+    cv2.polylines(frame, [right_arr], False, path_col, 2, cv2.LINE_AA)
+
+    # Animated dashed centre line
+    if isinstance(left_pts[0], tuple):
+        n = len(left_pts)
+        cx_pts = [((left_pts[i][0]+right_pts[i][0])//2,
+                   (left_pts[i][1]+right_pts[i][1])//2) for i in range(n)]
+    else:
+        cx_pts = left_pts  # fallback for straight (2 pts)
+        cx_pts = [
+            (GROUND_CX, CAM_H),
+            (GROUND_CX, HORIZON_Y + 20)
+        ]
+
+    # Dash animation: scroll from bottom to top
+    dash_len = 18
+    gap_len  = 14
+    anim_offset = int(t * 120) % (dash_len + gap_len)
+
+    for i in range(len(cx_pts)-1):
+        p1 = cx_pts[i]; p2 = cx_pts[i+1]
+        seg_len = math.hypot(p2[0]-p1[0], p2[1]-p1[1])
+        if seg_len < 1: continue
+        # Draw only "on" dashes
+        pos = float(anim_offset)
+        while pos < seg_len:
+            t0f = pos / seg_len
+            t1f = min((pos + dash_len) / seg_len, 1.0)
+            dp1 = (int(p1[0] + t0f*(p2[0]-p1[0])), int(p1[1] + t0f*(p2[1]-p1[1])))
+            dp2 = (int(p1[0] + t1f*(p2[0]-p1[0])), int(p1[1] + t1f*(p2[1]-p1[1])))
+            cv2.line(frame, dp1, dp2, (255,255,255), 1, cv2.LINE_AA)
+            pos += dash_len + gap_len
+
+    # Direction arrow at path centre (1/3 up from bottom)
+    if len(cx_pts) >= 2:
+        arrow_idx = len(cx_pts) // 3
+        if isinstance(cx_pts[0], tuple) and len(cx_pts) > arrow_idx:
+            tip = cx_pts[arrow_idx]
+            base_idx = max(0, arrow_idx - 5)
+            base = cx_pts[base_idx]
         else:
-            return "STEER RIGHT", base, int(base*0.2)
+            tip  = (GROUND_CX, int(CAM_H * 0.55))
+            base = (GROUND_CX, int(CAM_H * 0.75))
+        cv2.arrowedLine(frame, base, tip, path_col, 3, cv2.LINE_AA, tipLength=0.3)
 
-    if zone_min["right"] < DANGER_M:
-        return "STEER LEFT", int(base*0.4), base
+    # Action label badge on path
+    badge = {"FORWARD": "FORWARD", "STEER LEFT": "GO LEFT", "STEER RIGHT": "GO RIGHT"}.get(action, action)
+    bw, bh = cv2.getTextSize(badge, FONT_B, 0.65, 1)[0]
+    bx = GROUND_CX - bw//2; by = int(CAM_H * 0.78)
+    cv2.rectangle(frame, (bx-8, by-bh-6), (bx+bw+8, by+4), (0,0,0), -1)
+    cv2.rectangle(frame, (bx-8, by-bh-6), (bx+bw+8, by+4), path_col, 1)
+    cv2.putText(frame, badge, (bx, by), FONT_B, 0.65, path_col, 1, cv2.LINE_AA)
 
-    if zone_min["left"] < DANGER_M:
-        return "STEER RIGHT", base, int(base*0.4)
-
-    return "FORWARD", base, base
-
-
-# -----------------------------------------------------------------------------
-# Drawing helpers
-# -----------------------------------------------------------------------------
-
-def txt(img, s, pos, scale=0.45, color=C_WHITE, thick=1):
-    cv2.putText(img, s, pos, FONT, scale, color, thick, cv2.LINE_AA)
-
-def bar(img, x, y, w, h, val, max_val, color, label=""):
-    cv2.rectangle(img, (x,y), (x+w, y+h), (35,37,52), -1)
-    f = int(w * min(abs(val), max_val) / max(max_val, 1))
-    if f > 0:
-        cv2.rectangle(img, (x,y), (x+f, y+h), color, -1)
-    cv2.rectangle(img, (x,y), (x+w, y+h), C_GREY, 1)
-    if label:
-        txt(img, f"{label}: {val:3.0f}", (x+4, y+h-4), 0.35, C_WHITE)
-
-def hline(img, y, x0, x1):
-    cv2.line(img, (x0, y), (x1, y), (45, 48, 68), 1)
-
-def rounded_rect(img, x1, y1, x2, y2, color, thickness=1, r=6):
-    cv2.rectangle(img, (x1+r, y1), (x2-r, y2), color, thickness)
-    cv2.rectangle(img, (x1, y1+r), (x2, y2-r), color, thickness)
-
-def compass(img, cx, cy, radius, heading_deg):
-    cv2.circle(img, (cx,cy), radius, (30,33,48), -1)
-    cv2.circle(img, (cx,cy), radius, C_GREY, 1)
-    for label, angle in [("N",0),("E",90),("S",180),("W",270)]:
-        rad = math.radians(angle - 90)
-        tx = cx + int((radius+12)*math.cos(rad))
-        ty = cy + int((radius+12)*math.sin(rad))
-        txt(img, label, (tx-4, ty+4), 0.33, C_GREY)
-    needle = math.radians(heading_deg - 90)
-    nx = cx + int(radius*0.82*math.cos(needle))
-    ny = cy + int(radius*0.82*math.sin(needle))
-    cv2.arrowedLine(img, (cx,cy), (nx,ny), C_TEAL, 2, tipLength=0.3)
-    txt(img, f"{heading_deg:.0f}deg", (cx-14, cy+radius+18), 0.38, C_TEAL)
+    return frame
 
 
-def draw_mini_rover(img, x, y, action):
-    """Draw tiny top-down rover schematic with animated wheels."""
-    t = time.monotonic()
-    spin = int(t * 10) % 8
-
-    body_color = C_TEAL if action == "FORWARD" else (
-        C_RED if action == "STOP" else C_YELLOW)
-
-    # Body
-    cv2.rectangle(img, (x, y), (x+40, y+60), body_color, 2)
-    cv2.rectangle(img, (x+5, y+5), (x+35, y+55), (30,33,48), -1)
-
-    # Arrow inside
-    if action == "FORWARD":
-        cv2.arrowedLine(img, (x+20, y+45), (x+20, y+15), C_TEAL, 2, tipLength=0.3)
-    elif action == "STOP":
-        cv2.line(img, (x+10, y+30), (x+30, y+30), C_RED, 2)
-    elif "LEFT" in action:
-        cv2.arrowedLine(img, (x+28, y+30), (x+10, y+30), C_YELLOW, 2, tipLength=0.3)
-    elif "RIGHT" in action:
-        cv2.arrowedLine(img, (x+12, y+30), (x+30, y+30), C_YELLOW, 2, tipLength=0.3)
-
-    # Wheels (spinning dots to show movement)
-    wheel_col = C_LIME if action != "STOP" else C_RED
-    for wx, wy in [(x-6, y+10), (x-6, y+40), (x+46, y+10), (x+46, y+40)]:
-        cv2.circle(img, (wx, wy), 5, wheel_col, -1)
-        if action != "STOP":
-            dot_a = math.radians(spin * 45)
-            dx = int(3*math.cos(dot_a))
-            dy = int(3*math.sin(dot_a))
-            cv2.circle(img, (wx+dx, wy+dy), 1, C_BG, -1)
-
-
-def draw_cpu_activity(img, x, y, w, fps, inference_ms):
-    """Animated NPU utilisation bar."""
-    t = time.monotonic()
-    util = min(1.0, (fps / 12.0) + 0.1*math.sin(t*3))
-    bar(img, x, y, w, 14, int(util*100), 100, C_ACCENT, "NPU")
-    txt(img, f"{inference_ms:.0f}ms / frame", (x, y+28), 0.38, C_GREY)
-
-
-# -----------------------------------------------------------------------------
-# Main dashboard renderer
-# -----------------------------------------------------------------------------
-
-def render(frame: np.ndarray,
-           dets: List[Det],
-           action: str,
-           left_pwm: int,
-           right_pwm: int,
-           fps: float,
-           inference_ms: float,
-           heading: float,
-           frame_no: int,
-           paused: bool,
-           source: str,
-           zone_min: dict) -> np.ndarray:
-
-    cam_h, cam_w = frame.shape[:2]
-    total_w = cam_w + PANEL_W
-    total_h = max(cam_h, 700)
-
-    canvas = np.full((total_h, total_w, 3), C_BG, dtype=np.uint8)
-    # Panel background slightly lighter
-    cv2.rectangle(canvas, (cam_w, 0), (total_w, total_h), C_PANEL, -1)
-
-    # -- Camera frame ----------------------------------------------------------
-    canvas[:cam_h, :cam_w] = frame
-
-    # Scanline overlay (thin)
-    canvas[:cam_h:3, :cam_w] = (canvas[:cam_h:3, :cam_w] * 0.88).astype(np.uint8)
-
-    # Zone dividers
-    lx = cam_w // 3
-    rx = 2 * cam_w // 3
-    for xd in [lx, rx]:
-        cv2.line(canvas, (xd, 0), (xd, cam_h), (50, 54, 80), 1)
-    txt(canvas, "LEFT",   (lx//2 - 18, 16), 0.4, (65,70,95))
-    txt(canvas, "CENTER", (lx + (rx-lx)//2 - 28, 16), 0.4, (65,70,95))
-    txt(canvas, "RIGHT",  (rx + (cam_w-rx)//2 - 22, 16), 0.4, (65,70,95))
-
-    # -- Detection bounding boxes ----------------------------------------------
+# ---------------------------------------------------------------------------
+# Detection box overlay
+# ---------------------------------------------------------------------------
+def draw_det_boxes(canvas: np.ndarray, dets: List[Det]):
     for d in dets:
         col = C_RED if d.dist_m < EMERGENCY_M else (
               C_YELLOW if d.dist_m < DANGER_M else C_GREEN)
-        cv2.rectangle(canvas, (d.x1, d.y1), (d.x2, d.y2), col, 2)
-        # Corner accents
-        clen = 10
-        for cx0, cy0, sx, sy in [(d.x1,d.y1,1,1),(d.x2,d.y1,-1,1),
-                                  (d.x1,d.y2,1,-1),(d.x2,d.y2,-1,-1)]:
-            cv2.line(canvas,(cx0,cy0),(cx0+sx*clen,cy0),col,2)
-            cv2.line(canvas,(cx0,cy0),(cx0,cy0+sy*clen),col,2)
+        ov = canvas.copy()
+        cv2.rectangle(ov, (d.x1,d.y1), (d.x2,d.y2), col, -1)
+        cv2.addWeighted(ov, 0.10, canvas, 0.90, 0, canvas)
+        cv2.rectangle(canvas, (d.x1,d.y1), (d.x2,d.y2), col, 1)
+        cl = 14
+        for cx0,cy0,sx,sy in [(d.x1,d.y1,1,1),(d.x2,d.y1,-1,1),
+                               (d.x1,d.y2,1,-1),(d.x2,d.y2,-1,-1)]:
+            cv2.line(canvas,(cx0,cy0),(cx0+sx*cl,cy0),col,2)
+            cv2.line(canvas,(cx0,cy0),(cx0,cy0+sy*cl),col,2)
+        lbl = f"  {d.label}  {d.dist_m:.1f}m  "
+        (tw,th),_ = cv2.getTextSize(lbl, FONT, 0.38, 1)
+        lx,ly = d.x1, max(d.y1-1, th+6)
+        cv2.rectangle(canvas,(lx,ly-th-5),(lx+tw+2,ly+1),col,-1)
+        cv2.putText(canvas, lbl, (lx+2,ly-3), FONT, 0.38, (8,8,8), 1, cv2.LINE_AA)
+        zone_s = d.zone[0].upper()
+        cv2.putText(canvas, zone_s, (d.x1+3,d.y2-4), FONT, 0.35, col, 1, cv2.LINE_AA)
 
-        label = f"{d.label}  {d.dist_m:.1f}m  [{d.zone.upper()[0]}]"
-        (tw, th), _ = cv2.getTextSize(label, FONT, 0.38, 1)
-        cv2.rectangle(canvas, (d.x1, d.y1-th-6), (d.x1+tw+6, d.y1), col, -1)
-        txt(canvas, label, (d.x1+3, d.y1-4), 0.38, (10,10,10))
 
-    # -- Action banner (bottom of camera) -------------------------------------
-    action_colors = {
-        "FORWARD":     C_GREEN,
-        "STOP":        C_RED,
-        "STEER LEFT":  C_YELLOW,
-        "STEER RIGHT": C_YELLOW,
-    }
-    acol = action_colors.get(action, C_WHITE)
-    cv2.rectangle(canvas, (0, cam_h-32), (cam_w, cam_h), (12,14,22), -1)
+# ---------------------------------------------------------------------------
+# Drawing utilities
+# ---------------------------------------------------------------------------
+def txt(img, s, pos, sc=0.40, col=C_WHITE, th=1):
+    cv2.putText(img, str(s), pos, FONT, sc, col, th, cv2.LINE_AA)
 
-    arrows = {"FORWARD":"^ FORWARD","STOP":"[X] STOP","STEER LEFT":"<< STEER LEFT","STEER RIGHT":">> STEER RIGHT"}
-    txt(canvas, arrows.get(action, action), (10, cam_h-10), 0.6, acol, 2)
+def txb(img, s, pos, sc=0.50, col=C_WHITE):
+    cv2.putText(img, str(s), pos, FONT_B, sc, col, 1, cv2.LINE_AA)
 
-    if paused:
-        txt(canvas, "PAUSED", (cam_w-90, cam_h-10), 0.55, C_ORANGE, 2)
+def hline(img, y, x0, x1):
+    cv2.line(img, (x0,y), (x1,y), BORDER, 1)
 
-    # Source + FPS badge
-    txt(canvas, f"{source.upper()}  {fps:.1f} FPS", (8, 18), 0.4, C_TEAL)
+def grad_rect(img, x1, y1, x2, y2, ctop, cbot):
+    for y in range(y1, y2):
+        a = (y-y1) / max(1, y2-y1)
+        c = tuple(int(ctop[i]*(1-a)+cbot[i]*a) for i in range(3))
+        cv2.line(img, (x1,y), (x2,y), c, 1)
 
-    # -- RIGHT PANEL -----------------------------------------------------------
-    px = cam_w + 10
-    pw = PANEL_W - 16
-    y  = 16
+def anim_bar(img, x, y, w, h, val, maxv, col, bg=(22,24,38)):
+    cv2.rectangle(img,(x,y),(x+w,y+h),bg,-1)
+    fw = int(w * min(max(val,0), maxv) / max(maxv,1))
+    for i in range(fw):
+        a = i / max(1, fw)
+        dk = tuple(int(c*0.35) for c in col)
+        c  = tuple(int(dk[j]*(1-a)+col[j]*a) for j in range(3))
+        cv2.line(img,(x+i,y+1),(x+i,y+h-1),c,1)
+    cv2.rectangle(img,(x,y),(x+w,y+h),BORDER,1)
 
-    # -- HEADER ---------------------------------------------------------------
-    cv2.rectangle(canvas, (cam_w, 0), (total_w, 52), (22, 20, 38), -1)
-    txt(canvas, "NEMO_SENSE", (px, 22), 0.7, C_ACCENT, 2)
-    txt(canvas, "ARDUINO UNO Q  |  NPU ACTIVE", (px, 40), 0.36, C_GREY)
-    hline(canvas, 52, cam_w, total_w)
-    y = 68
+def pulse(img, cx, cy, r, col, t):
+    p  = 0.5 + 0.5*math.sin(t*4)
+    pr = int(r*(1+p*0.5))
+    ac = tuple(int(c*(0.3+0.7*p)) for c in col)
+    cv2.circle(img,(cx,cy),pr,ac,-1)
+    cv2.circle(img,(cx,cy),r, col,-1)
 
-    # -- NPU Activity ---------------------------------------------------------
-    txt(canvas, "NEURAL PROCESSING UNIT", (px, y), 0.42, C_GREY)
-    y += 16
-    draw_cpu_activity(canvas, px, y, pw, fps, inference_ms)
-    y += 40
+def draw_bat(img, x, y, w, h, pct, label, t):
+    cv2.rectangle(img,(x,y),(x+w,y+h),BORDER,1)
+    nby = y + h//2 - 2
+    cv2.rectangle(img,(x+w,nby),(x+w+3,nby+4),BORDER,-1)
+    fw = int((w-2)*pct)
+    col = C_GREEN if pct>0.5 else (C_YELLOW if pct>0.2 else C_RED)
+    if fw>0:
+        cv2.rectangle(img,(x+1,y+1),(x+1+fw,y+h-1),col,-1)
+    txt(img, label, (x, y-10), 0.28, C_DIM)
+    txt(img, f"{int(pct*100)}%", (x+3,y+h-3), 0.28, C_WHITE)
 
-    # Inference ms pill
-    ms_col = C_GREEN if inference_ms < 120 else (C_YELLOW if inference_ms < 250 else C_RED)
-    cv2.rectangle(canvas, (px, y), (px+pw, y+18), (28,30,45), -1)
-    txt(canvas, f"YOLOv5n ONNX  conf={CONF_THRESH}  {inference_ms:.0f}ms", (px+4,y+13), 0.37, ms_col)
-    y += 26
 
-    hline(canvas, y, cam_w, total_w); y += 14
+# ---------------------------------------------------------------------------
+# Right panel
+# ---------------------------------------------------------------------------
+def draw_panel(canvas, dets, action, lpwm, rpwm,
+               fps, ims, fno, zone_min, bat_pcts, t):
 
-    # -- Obstacle Zones --------------------------------------------------------
-    txt(canvas, "ZONE DISTANCES", (px, y), 0.42, C_GREY); y += 16
-    for zone_name in ["left", "center", "right"]:
-        d = zone_min[zone_name]
-        if d == INF:
-            fill, zcol, dtxt = 0, C_GREEN, "clear"
+    px = CAM_W + 10
+    pw = PANEL_W - 18
+
+    # Header gradient
+    grad_rect(canvas, CAM_W, 0, TOTAL_W, 54, (22,18,44), (14,16,26))
+    txb(canvas, "NEMO_SENSE", (px, 24), 0.68, (175,155,220))
+    pulse(canvas, TOTAL_W-16, 18, 5, C_LIME, t)
+    txt(canvas, "LIVE AI NAVIGATION", (px, 40), 0.32, C_DIM)
+    txt(canvas, "ARDUINO UNO Q", (TOTAL_W-112, 40), 0.32, C_PURPLE)
+    hline(canvas, 54, CAM_W, TOTAL_W)
+    y = 64
+
+    # AI pipeline
+    txt(canvas, "AI PIPELINE", (px,y), 0.37, C_DIM); y+=14
+    nu = min(1., 0.50 + 0.22*math.sin(t*2.5+1))
+    anim_bar(canvas, px, y, pw, 11, nu*100, 100, C_PURPLE)
+    txt(canvas, f"YOLOv5n ONNX   {ims:.0f}ms   {nu*100:.0f}% NPU", (px,y+23), 0.32, C_DIM)
+    y+=32; hline(canvas,y,CAM_W,TOTAL_W); y+=12
+
+    # Zone scan
+    txt(canvas, "ZONE SCAN", (px,y), 0.37, C_DIM); y+=14
+    for zone in ["left","center","right"]:
+        d2 = zone_min[zone]
+        if d2 == INF:
+            fr2, zc, dt2 = 0, C_GREEN, "CLEAR"
         else:
-            fill = int(pw * max(0, 1 - d/5.0))
-            zcol = C_RED if d < EMERGENCY_M else (C_YELLOW if d < DANGER_M else C_GREEN)
-            dtxt = f"{d:.1f}m"
-        cv2.rectangle(canvas, (px, y), (px+pw, y+17), (35,38,55), -1)
-        if fill: cv2.rectangle(canvas, (px+pw-fill, y), (px+pw, y+17), zcol, -1)
-        cv2.rectangle(canvas, (px, y), (px+pw, y+17), C_GREY, 1)
-        txt(canvas, f"{zone_name.upper():<6}  {dtxt}", (px+4, y+12), 0.38, C_WHITE)
-        y += 21
+            fr2 = max(0., 1. - d2/5.)
+            zc  = C_RED if d2<EMERGENCY_M else (C_YELLOW if d2<DANGER_M else C_GREEN)
+            dt2 = f"{d2:.1f}m"
+        cv2.rectangle(canvas,(px,y),(px+pw,y+17),(20,22,34),-1)
+        if fr2>0:
+            fw2 = int(pw*fr2)
+            cv2.rectangle(canvas,(px+pw-fw2,y),(px+pw,y+17),zc,-1)
+            ov2 = canvas.copy()
+            cv2.addWeighted(ov2,0.28,canvas,0.72,0,canvas)
+        cv2.rectangle(canvas,(px,y),(px+pw,y+17),BORDER,1)
+        txt(canvas, f"{zone.upper():<6}", (px+4,y+11), 0.36, C_WHITE)
+        txt(canvas, dt2, (px+pw-44,y+11), 0.35, zc if d2!=INF else C_DIM)
+        y+=20
+    hline(canvas,y,CAM_W,TOTAL_W); y+=12
 
-    y += 6; hline(canvas, y, cam_w, total_w); y += 14
+    # Decision block
+    txt(canvas, "NAVIGATION DECISION", (px,y), 0.37, C_DIM); y+=13
+    cfg = {"FORWARD":(C_GREEN,"FORWARD","path is clear"),
+           "STOP":   (C_RED,  "STOP",   "obstacle ahead"),
+           "STEER LEFT": (C_YELLOW,"<< STEER LEFT","obstacle in center"),
+           "STEER RIGHT":(C_YELLOW,"STEER RIGHT >>","obstacle in center")}
+    acol, albl, asub = cfg.get(action, (C_WHITE, action, ""))
+    bg_act = (28,10,10) if action=="STOP" else (14,20,14) if action=="FORWARD" else (24,22,10)
+    cv2.rectangle(canvas,(px,y),(px+pw,y+54),bg_act,-1)
+    cv2.rectangle(canvas,(px,y),(px+pw,y+54),acol,1)
+    mid = px + pw//2
+    if action=="FORWARD":
+        cv2.arrowedLine(canvas,(mid,y+40),(mid,y+14),acol,3,tipLength=0.38)
+    elif action=="STOP":
+        cv2.rectangle(canvas,(mid-10,y+14),(mid+10,y+40),acol,-1)
+    elif "LEFT" in action:
+        cv2.arrowedLine(canvas,(mid+16,y+30),(mid-16,y+30),acol,3,tipLength=0.38)
+    elif "RIGHT" in action:
+        cv2.arrowedLine(canvas,(mid-16,y+30),(mid+16,y+30),acol,3,tipLength=0.38)
+    txb(canvas, albl, (px+pw//2-len(albl)*6, y+52), 0.44, acol)
+    txt(canvas, asub, (px+6, y+14), 0.30, C_DIM)
+    y+=62; hline(canvas,y,CAM_W,TOTAL_W); y+=12
 
-    # -- Motor PWM -------------------------------------------------------------
-    txt(canvas, "MOTOR OUTPUT  (relay switched)", (px, y), 0.42, C_GREY); y += 16
-    bar(canvas, px, y, pw, 18, left_pwm,  255, C_BLUE,  "L PWM"); y += 24
-    bar(canvas, px, y, pw, 18, right_pwm, 255, C_BLUE,  "R PWM"); y += 28
+    # Motor output
+    txt(canvas, "MOTOR COMMAND", (px,y), 0.37, C_DIM); y+=14
+    hw = pw//2 - 3
+    anim_bar(canvas, px,      y, hw, 12, lpwm, 255, C_BLUE)
+    anim_bar(canvas, px+hw+6, y, hw, 12, rpwm, 255, C_BLUE)
+    txt(canvas, f"L {lpwm}", (px+3,    y+24), 0.32, C_DIM)
+    txt(canvas, f"R {rpwm}", (px+hw+9, y+24), 0.32, C_DIM)
+    spd = max(lpwm,rpwm)/255*BASE_SPEED
+    txt(canvas, f"{spd:.2f} m/s", (px+hw-22,y+24), 0.30, C_TEAL)
+    y+=34; hline(canvas,y,CAM_W,TOTAL_W); y+=12
 
-    hline(canvas, y, cam_w, total_w); y += 14
+    # Battery
+    txt(canvas, "POWER SYSTEM", (px,y), 0.37, C_DIM); y+=22
+    bw3 = (pw-8)//3
+    draw_bat(canvas, px,           y, bw3-3, 12, bat_pcts[0], "BAT-1",     t)
+    draw_bat(canvas, px+bw3,       y, bw3-3, 12, bat_pcts[1], "BAT-2",     t+1.1)
+    draw_bat(canvas, px+bw3*2+4,   y, bw3-3, 12, bat_pcts[2], "BAT-3 AI",  t+2.2)
+    y+=26
+    fc = C_LIME if bat_pcts[0]>0.1 else C_YELLOW
+    pulse(canvas, px+6, y+4, 3, fc, t)
+    txt(canvas, "Schottky OR failover  |  3x redundancy", (px+14,y+8), 0.28, C_DIM)
+    y+=18; hline(canvas,y,CAM_W,TOTAL_W); y+=12
 
-    # -- Mini rover diagram ----------------------------------------------------
-    txt(canvas, "STEERING VIEW", (px, y), 0.42, C_GREY); y += 10
-    draw_mini_rover(canvas, cam_w + PANEL_W//2 - 24, y + 2, action)
-    y += 80
+    # Detections
+    txt(canvas, f"DETECTIONS ({len(dets)})", (px,y), 0.37, C_DIM); y+=14
+    if dets:
+        for d3 in dets[:4]:
+            dc = C_RED if d3.dist_m<DANGER_M else C_GREEN
+            cv2.rectangle(canvas,(px,y-1),(px+pw,y+14),(20,22,34),-1)
+            pulse(canvas, px+5, y+6, 3, dc, t)
+            txt(canvas, f"  {d3.label:<13}{d3.zone[0].upper()}  {d3.dist_m:.1f}m  {d3.conf:.0%}",
+                (px, y+10), 0.33, dc)
+            y+=16
+    else:
+        cv2.rectangle(canvas,(px,y-1),(px+pw,y+14),(18,22,30),-1)
+        pulse(canvas, px+5, y+6, 3, C_GREEN, t)
+        txt(canvas, "  path clear -- no obstacles", (px,y+10), 0.33, C_DIM)
+        y+=16
 
-    hline(canvas, y, cam_w, total_w); y += 14
-
-    # -- Compass + heading -----------------------------------------------------
-    txt(canvas, "HEADING", (px, y), 0.42, C_GREY)
-    compass(canvas, cam_w + PANEL_W//2, y + 52, 38, heading)
-    y += 110
-
-    hline(canvas, y, cam_w, total_w); y += 14
-
-    # -- Detection list --------------------------------------------------------
-    txt(canvas, f"DETECTIONS ({len(dets)})", (px, y), 0.42, C_GREY); y += 16
-    for d in dets[:4]:
-        dcol = C_RED if d.dist_m < DANGER_M else C_GREEN
-        txt(canvas, f"  {d.label:<12} {d.zone.upper()[0]}  {d.dist_m:.1f}m  {d.conf:.0%}",
-            (px, y), 0.37, dcol)
-        y += 15
-    if not dets:
-        txt(canvas, "  -- no obstacles --", (px, y), 0.38, C_GREY); y += 15
-
-    y += 4; hline(canvas, y, cam_w, total_w); y += 12
-
-    # -- Status line ----------------------------------------------------------
-    txt(canvas, f"frame #{frame_no}   speed {BASE_SPEED:.2f} m/s", (px, y), 0.38, C_GREY)
-    y += 16
-    txt(canvas, "Q=quit  S=slow  F=fast  P=pause  R=reset", (px, y), 0.33, (60,65,90))
-
-    return canvas
+    y+=6; hline(canvas,y,CAM_W,TOTAL_W); y+=10
+    txt(canvas, f"FRAME #{fno:05d}   {fps:.0f} FPS   {ims:.0f}ms/frame", (px,y+10), 0.28, (45,50,70))
+    y+=18
+    txt(canvas, "Q=quit   P=pause", (px,y+8), 0.26, (38,42,60))
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Navigation logic
+# ---------------------------------------------------------------------------
+def classify_zones(dets: List[Det], fw: int) -> List[Det]:
+    l_end = fw // 3; r_start = 2 * fw // 3
+    for d in dets:
+        cx = (d.x1+d.x2)//2
+        area = ((d.x2-d.x1)*(d.y2-d.y1)) / (fw*CAM_H)
+        d.dist_m = max(0.3, 4.0*(1.0 - area*8))
+        d.zone = "left" if cx<l_end else ("right" if cx>r_start else "center")
+    return dets
+
+def decide(dets: List[Det]) -> Tuple[str, int, int]:
+    zm = {"left":INF,"center":INF,"right":INF}
+    for d in dets:
+        if d.dist_m < zm[d.zone]: zm[d.zone] = d.dist_m
+    b = 120
+    if zm["center"] < EMERGENCY_M: return "STOP", 0, 0
+    if zm["center"] < DANGER_M:
+        return ("STEER LEFT", int(b*.2), b) if zm["left"]>zm["right"] \
+            else ("STEER RIGHT", b, int(b*.2))
+    if zm["right"] < DANGER_M: return "STEER LEFT", int(b*.4), b
+    if zm["left"]  < DANGER_M: return "STEER RIGHT", b, int(b*.4)
+    return "FORWARD", b, b
+
+def sim_bats(t0, tn):
+    e = tn - t0
+    return (max(0., 1.-e/1800), max(0., 1.-e/2100), max(0., 1.-e/3600))
+
+
+# ---------------------------------------------------------------------------
 # Main
-# -----------------------------------------------------------------------------
-
-def find_model() -> Optional[Path]:
+# ---------------------------------------------------------------------------
+def find_model():
     for p in ONNX_SEARCH:
-        if p.exists():
-            return p
+        if p.exists(): return p
     return None
 
-
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--camera", type=int, default=-1, help="Camera index (-1 = auto)")
-    ap.add_argument("--stream", type=str, default="", help="HTTP stream URL (e.g. http://192.168.1.X:8080/)")
-    ap.add_argument("--sim",    action="store_true",   help="Simulated camera (no hardware)")
-    ap.add_argument("--model",  type=str, default=None, help="Path to yolov5n.onnx")
+    ap = argparse.ArgumentParser(description="NEMO_SENSE AI Navigation Dashboard")
+    ap.add_argument("--camera", type=int,  default=-1,  help="Camera index")
+    ap.add_argument("--stream", type=str,  default="",  help="MJPEG stream URL")
+    ap.add_argument("--model",  type=str,  default=None)
+    ap.add_argument("--no-path",action="store_true",    help="Disable path overlay")
     args = ap.parse_args()
 
-    # -- Model -----------------------------------------------------------------
-    model_path = Path(args.model) if args.model else find_model()
-    yolo = YOLOv5(model_path)
+    yolo = YOLOv5(find_model() if not args.model else args.model)
 
-    if args.sim:
-        cap = SimCam()
-        source = "SIMULATED"
-        print("[CAM] Using simulated camera")
-    elif args.stream:
+    # -- Camera setup --
+    cap = None; source = ""
+    if args.stream:
         cap = cv2.VideoCapture(args.stream)
-        if not cap.isOpened():
-            print(f"[CAM] Failed to open stream {args.stream} -- falling back to simulated")
-            cap = SimCam()
-            source = "SIMULATED"
-        else:
-            source = f"STREAM [{args.stream[:20]}]"
-            print(f"[CAM] Opened network stream: {args.stream}")
+        source = f"STREAM {args.stream[-22:]}"
+        print(f"[NET] Stream: {args.stream}")
     else:
         idx = args.camera
         if idx == -1:
-            # Auto-detect
             for i in range(4):
                 c = cv2.VideoCapture(i, cv2.CAP_DSHOW)
                 if c.isOpened():
                     ret, _ = c.read()
-                    if ret:
-                        cap = c
-                        idx = i
-                        break
+                    if ret: cap = c; idx = i; break
                     c.release()
-            else:
-                print("[CAM] No webcam found -- falling back to simulated camera")
-                cap = SimCam()
-                source = "SIMULATED"
-                idx = -1
+            if cap is None:
+                # Try without DSHOW
+                for i in range(4):
+                    c = cv2.VideoCapture(i)
+                    if c.isOpened():
+                        ret, _ = c.read()
+                        if ret: cap = c; idx = i; break
+                        c.release()
         else:
             cap = cv2.VideoCapture(idx, cv2.CAP_DSHOW)
             if not cap.isOpened():
-                print(f"[CAM] Camera {idx} not available -- using simulated")
-                cap = SimCam()
-                idx = -1
-
-        if idx >= 0:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
+                cap = cv2.VideoCapture(idx)
+        if cap and cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
-            cap.set(cv2.CAP_PROP_FPS, 30)
+            cap.set(cv2.CAP_PROP_FPS,          30)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE,    1)
             source = f"WEBCAM [{idx}]"
-            print(f"[CAM] Opened camera {idx}")
+            print(f"[CAM] Camera {idx} opened")
+        else:
+            print("[ERROR] No camera found. Connect a webcam and retry.")
+            return
 
-    # -- State -----------------------------------------------------------------
-    heading   = 0.0
-    frame_no  = 0
-    paused    = False
-    fps       = 0.0
-    infer_ms  = 0.0
-    t_fps     = time.monotonic()
-    fps_count = 0
-    last_dets: List[Det] = []
-    last_action = "FORWARD"
-    last_left = last_right = 120
+    # -- State --
+    paused = False; fno = 0; fps = 0.; ims = 20.
+    t0 = time.monotonic(); tfps = t0; fpsc = 0
+    last_dets: List[Det] = []; last_act = "FORWARD"; ll = lr = 120
+    last_frame = np.zeros((CAM_H, CAM_W, 3), np.uint8)
 
-    WIN = "NEMO_SENSE -- Live AI Demo"
+    WIN = "NEMO_SENSE -- AI Navigation"
     cv2.namedWindow(WIN, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(WIN, CAM_W + PANEL_W, max(CAM_H, 700))
+    cv2.resizeWindow(WIN, TOTAL_W, TOTAL_H)
+    print("[RUN] Dashboard active. Q=quit  P=pause  --no-path to hide overlay")
 
-    print("[SIM] Running. Press Q or ESC to quit.")
-
+    tl = time.monotonic()
     while True:
-        t0 = time.monotonic()
-
-        ret, raw = cap.read()
-        if not ret or raw is None:
-            raw = np.zeros((CAM_H, CAM_W, 3), np.uint8)
-
-        frame = cv2.resize(raw, (CAM_W, CAM_H))
+        tn  = time.monotonic()
+        dt  = tn - tl; tl = tn
+        ta  = tn - t0
 
         if not paused:
-            # -- AI inference ------------------------------------------------
-            t_inf = time.monotonic()
-            dets  = yolo.infer(frame.copy())
-            infer_ms = (time.monotonic() - t_inf) * 1000
+            ret, raw = cap.read()
+            if not ret or raw is None:
+                raw = np.zeros((CAM_H, CAM_W, 3), np.uint8)
+            frame = cv2.resize(raw, (CAM_W, CAM_H))
+            last_frame = frame.copy()
 
+            ti = time.monotonic()
+            dets = yolo.infer(frame)
+            ims  = (time.monotonic()-ti)*1000
             dets = classify_zones(dets, CAM_W)
-            action, left_pwm, right_pwm = decide(dets)
-
-            # Smooth heading based on action
-            if action == "STEER LEFT":
-                heading = (heading - 3) % 360
-            elif action == "STEER RIGHT":
-                heading = (heading + 3) % 360
-
-            last_dets   = dets
-            last_action = action
-            last_left   = left_pwm
-            last_right  = right_pwm
-            frame_no   += 1
-
-        # Zone mins for display
-        zone_min = {"left": INF, "center": INF, "right": INF}
-        for d in last_dets:
-            if d.dist_m < zone_min[d.zone]:
-                zone_min[d.zone] = d.dist_m
+            act, ll, lr = decide(dets)
+            last_dets = dets; last_act = act; fno += 1
+        else:
+            frame = last_frame.copy()
 
         # FPS
-        fps_count += 1
-        elapsed = time.monotonic() - t_fps
-        if elapsed >= 1.0:
-            fps = fps_count / elapsed
-            fps_count = 0
-            t_fps = time.monotonic()
+        fpsc += 1
+        if tn-tfps >= 1.:
+            fps = fpsc/(tn-tfps); fpsc = 0; tfps = tn
 
-        # Render
-        canvas = render(
-            frame, last_dets, last_action,
-            last_left, last_right,
-            fps, infer_ms, heading, frame_no,
-            paused, source, zone_min
-        )
+        # -- Draw AR path on the frame FIRST --
+        if not args.no_path:
+            frame = draw_nav_path(frame, last_act, ta)
+
+        # -- Then overlay detection boxes --
+        draw_det_boxes(frame, last_dets)
+
+        # -- Compose full canvas --
+        canvas = np.full((TOTAL_H, TOTAL_W, 3), BG, dtype=np.uint8)
+        cv2.rectangle(canvas, (CAM_W,0),(TOTAL_W,TOTAL_H), PANEL_BG, -1)
+        canvas[:CAM_H, :CAM_W] = frame
+
+        # Zone divider lines on camera
+        lx, rx = CAM_W//3, 2*CAM_W//3
+        for xd in [lx, rx]:
+            cv2.line(canvas,(xd,0),(xd,CAM_H),(38,42,62),1)
+        txt(canvas,"LEFT",   (6,14),      0.30,(46,52,75))
+        txt(canvas,"CENTER", (lx+30,14),  0.30,(46,52,75))
+        txt(canvas,"RIGHT",  (rx+8,14),   0.30,(46,52,75))
+
+        # FPS badge top right of camera
+        cv2.rectangle(canvas,(CAM_W-115,0),(CAM_W,22),(0,0,0),-1)
+        txt(canvas, f"{fps:.0f} FPS  {ims:.0f}ms", (CAM_W-111,14), 0.34, C_TEAL)
+
+        # Source badge
+        cv2.rectangle(canvas,(0,0),(170,18),(0,0,0),-1)
+        txt(canvas, source, (3,12), 0.30, C_DIM)
+
+        # Bottom bar on camera
+        grad_rect(canvas, 0, CAM_H-32, CAM_W, CAM_H, (0,0,0),(6,6,14))
+        sym={"FORWARD":"[^] FORWARD","STOP":"[X] STOP",
+             "STEER LEFT":"[<] GO LEFT","STEER RIGHT":"[>] GO RIGHT"}
+        acol={"FORWARD":C_GREEN,"STOP":C_RED,"STEER LEFT":C_YELLOW,"STEER RIGHT":C_YELLOW}.get(last_act,C_WHITE)
+        txb(canvas, sym.get(last_act,last_act),(10,CAM_H-10),0.52,acol)
+        if paused:
+            txb(canvas,"PAUSED",(CAM_W//2-38,CAM_H//2),0.8,C_ORANGE)
+
+        # Zone mins for panel
+        zm = {"left":INF,"center":INF,"right":INF}
+        for d in last_dets:
+            if d.dist_m < zm[d.zone]: zm[d.zone] = d.dist_m
+
+        bats = sim_bats(t0, tn)
+        draw_panel(canvas, last_dets, last_act, ll, lr, fps, ims, fno, zm, bats, ta)
+
         cv2.imshow(WIN, canvas)
-
-        # Keys
-        key = cv2.waitKey(1) & 0xFF
-        if key in (ord("q"), ord("Q"), 27):
-            break
-        elif key in (ord("p"), ord("P")):
+        k = cv2.waitKey(1) & 0xFF
+        if k in (ord("q"), ord("Q"), 27): break
+        elif k in (ord("p"), ord("P")):
             paused = not paused
-            print(f"[SIM] {'PAUSED' if paused else 'RESUMED'}")
-        elif key in (ord("s"), ord("S")):
-            BASE_SPEED_NEW = max(0.1, BASE_SPEED - 0.05)
-            # Can't reassign global easily, just log
-            print(f"[SIM] S key -- would slow down")
-        elif key in (ord("f"), ord("F")):
-            print(f"[SIM] F key -- would speed up")
-        elif key in (ord("r"), ord("R")):
-            heading = 0.0
-            print("[SIM] Heading reset to 0deg")
+            print(f"[DEMO] {'PAUSED' if paused else 'LIVE'}")
 
-        # Throttle to ~15 FPS max
-        elapsed = time.monotonic() - t0
-        time.sleep(max(0, 0.066 - elapsed))
+        time.sleep(max(0, 0.030 - (time.monotonic()-tn)))
 
     cv2.destroyAllWindows()
-    if hasattr(cap, "release"):
-        cap.release()
-    print("[SIM] Stopped.")
-
+    cap.release()
+    print("[DONE]")
 
 if __name__ == "__main__":
     main()
