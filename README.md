@@ -9,24 +9,6 @@
 
 ---
 
-> **IMPORTANT — CIRCUIT DIAGRAMS & WIRING (Read first)**
->
-> The repository includes complete wiring diagrams, circuit schematics, and power-distribution drawings that are critical for safe assembly and testing. If you're building or reviewing the hardware, please consult these files before powering the robot:
->
-> - docs/hardware_wiring.md — Full wiring diagrams, connector pinouts, and step-by-step wiring instructions.
-> - PATENT_DISCLOSURE.md — Power flow, USB-hub loopback, GPIO truth tables, and battery failover diagrams.
-> - renders/cad/arduino_q_top.png and other renders/ images — PCB and chassis visual references useful when wiring components.
->
-> Quick links:
->
-> - Wiring & diagrams: ./docs/hardware_wiring.md
-> - Power & pin tables: ./PATENT_DISCLOSURE.md
-> - CAD & PCB renders: ./renders/cad/
->
-> Note: The designs include safety features (NC emergency stop, 5A fuse, flyback diodes on relay coils, Schottky diodes for battery OR-ing). Follow the wiring documents exactly to avoid damage or injury.
-
----
-
 > **285 million people** worldwide are visually impaired. Navigating a busy Indian city — with vehicles parked on footpaths, open manholes, stray animals, and uneven roads — is a daily challen[...]
 
 ---
@@ -86,5 +68,51 @@ NEMO_SENSE is a differential-drive mobile robot that:
 
 ```
 ╔════════════════════════════════════════════════════════════════�[...]
-... (remaining README content unchanged) ...
+║                        NEMO_SENSE ROBOT                              ║
+║                                                                      ║
+║  ┌─────────────┐    USB     ┌──────────────────────────────────┐    ║
+║  │  USB Camera │───────────►│         Arduino UNO Q            │    ║
+║  │  (720p)     │            │         (RA4M1 Cortex-M4)        │    ║
+║  └─────────────┘            │                                  │    ║
+║                             │  ┌──────────────────────────┐   │    ║
+║  ┌─────────────┐   GPIO     │  │    Neural Processing Unit │   │    ║
+║  │  HC-SR04    │───────────►│  │    YOLOv5n ONNX (7MB)    │   │    ║
+║  │  Ultrasonic │            │  │    Obstacle Detection     │   │    ║
+║  └─────────────┘            │  │    4–6 FPS Real-Time      │   │    ║
+║                             │  └──────────────────────────┘   │    ║
+║  ┌─────────────┐  Interrupt │                                  │    ║
+║  │  LM393 x2   │───────────►│  ┌──────────────────────────┐   │    ║
+║  │  Encoders   │            │  │    Dead-Reckoning Odom    │   │    ║
+║  └───────────���─┘            │  │    P-Controller Steering  │   │    ║
+║                             │  └──────────────────────────┘   │    ║
+║                             │              │                   │    ║
+║                             └──────────────┼───────────────────┘    ║
+║                                            │ UART Serial             ║
+║                             ┌──────────────▼───────────────────┐    ║
+║                             │    Motor Controller Arduino       │    ║
+║                             │    (arduino/motor_controller/)    │    ║
+║                             └──────────────┬───────────────────┘    ║
+║                                            │ GPIO                    ║
+║                             ┌──────────────▼───────────────────┐    ║
+║                             │    4-Channel Relay Module         │    ║
+║                             │    (Active-LOW, 5V coil, 10A)    │    ║
+║                             └──────┬──────────────┬────────────┘    ║
+║                                    │              │                  ║
+║                          ┌─────────▼──┐    ┌──────▼──────┐         ║
+║                          │ Left Motor │    │ Right Motor │         ║
+║                          │  DC Gear   │    │  DC Gear    │         ║
+║                          └────────────┘    └─────────────┘         ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════╦═════[...]
+                                                           ║ Bluetooth RFCOMM
+                                              ╔════════════▼══════════╗
+                                              ║   Android Phone       ║
+                                              ║   (Optional)          ║
+                                              ║   • TTS Voice Output  ║
+                                              ║   • Voice Commands    ║
+                                              ║   • GPS Waypoints     ║
+                                              ║   • Gemini AI NLP     ║
+                                              ╚═══════════════════════╝
 ```
+
+... (remaining README content unchanged) ...
